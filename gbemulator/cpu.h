@@ -15,7 +15,7 @@ public:
     cpu();
     void cpu_loop();
     int decodeByte(unsigned char *code, int pc);
-    void readFiletoBytes(char const* filename);
+    bool readFiletoBytes(char const* filename);
 
 };
 
