@@ -5,7 +5,7 @@ import csv
 #case 0x00: std::cout << "NOP\n"; break;
 
 beg = "switch (*code) {\n"
-end = "\tdefault: std::cout << \"***Instruction not recognized***\" break; \n}\n"
+end = "\tdefault: std::cout << \"***Instruction not recognized***\"; break; \n}\n"
 
 out_file = "switch.txt"
 file_name = "istr_set.csv" 
