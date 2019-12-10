@@ -15,7 +15,9 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     cpu.cpp \
-    main.cpp
+    main.cpp \
+    memory.cpp \
+    opcode.cpp
 
 RESOURCES += qml.qrc
 
@@ -31,4 +33,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
-    cpu.h
+    cpu.h \
+    memory.h \
+    opcode.h

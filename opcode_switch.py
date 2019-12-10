@@ -5,7 +5,7 @@ import csv
 #case 0x00: std::cout << "NOP\n"; break;
 
 beg = "switch (*code) {\n"
-end = "\tdefault: std::cout << \"***Instruction not recognized***\"; break; \n}\n"
+end = "\tdefault: std::cout << \"***Instruction not recognized*** \" << HEX(*code) << \"\\n\"; break; \n}\n"
 
 out_file = "switch.txt"
 file_name = "istr_set.csv" 
@@ -55,10 +55,21 @@ with open(out_file, 'w') as f:
 
             opcode = r.strip()
 
-            row = f"\tcase 0x{hex}: std::cout << \"{opcode}\\n\"; break;\n"
+            if r == ' ':
+                continue
+            elif 'nn' in r:
+                #3 byte row, (nn)
+                row = f"\tcase 0x{hex}: std::cout << HEXCOUNT(pc) << \" {opcode} \" << HEX(gbdata.buffer[pc+1]) << ' ' << HEX(gbdata.buffer[pc+2]) << \"\\n\"; opbytes = 3; break;\n"
+
+            elif 'n' in r or 'e' in r:
+                #2 byte row, (n)
+                row = f"\tcase 0x{hex}: std::cout << HEXCOUNT(pc) << \" {opcode} \" << HEX(gbdata.buffer[pc+1]) << \"\\n\"; opbytes = 2; break;\n"
+            else:
+                #1 byte row
+                row = f"\tcase 0x{hex}: std::cout << HEXCOUNT(pc) << \" {opcode}\\n\"; break;\n"
+
             print(row)
             f.write(row)
-
     f.write(end)
 
 
