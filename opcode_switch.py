@@ -54,19 +54,40 @@ with open(out_file, 'w') as f:
             hex = hexes[j][i]
 
             opcode = r.strip()
+            func = ""
 
             if r == ' ':
                 continue
             elif 'nn' in r:
                 #3 byte row, (nn)
-                row = f"\tcase 0x{hex}: std::cout << HEXCOUNT(pc) << \" {opcode} \" << HEX(gbdata.buffer[pc+1]) << ' ' << HEX(gbdata.buffer[pc+2]) << \"\\n\"; opbytes = 3; break;\n"
+                row = f"\tcase 0x{hex}: std::cout << \" {opcode} \" << HEX(gbdata.buffer[pc+1]) << ' ' << HEX(gbdata.buffer[pc+2]) << \"\\n\"; opbytes = 3; break;\n"
 
             elif 'n' in r or 'e' in r:
                 #2 byte row, (n)
-                row = f"\tcase 0x{hex}: std::cout << HEXCOUNT(pc) << \" {opcode} \" << HEX(gbdata.buffer[pc+1]) << \"\\n\"; opbytes = 2; break;\n"
+                row = f"\tcase 0x{hex}: std::cout << \" {opcode} \" << HEX(gbdata.buffer[pc+1]) << \"\\n\"; opbytes = 2; break;\n"
             else:
+
+                if 'XOR' in opcode and len(opcode.split()[1]) == 1:
+                    func = f" logXor(reg.A, reg.{opcode[-1]});"
+                elif 'OR' in opcode and len(opcode.split()[1]) == 1:
+                    func = f" logOr(reg.A, reg.{opcode.split()[1]});"
+                elif 'AND' in opcode and len(opcode.split()[1]) == 1:
+                    func = f" logAnd(reg.A, reg.{opcode.split()[1]});"
+                elif 'NOP' in opcode:
+                    func = f""
+                elif 'INC' in opcode and len(opcode.split()[1]) == 1:
+                    func = f" inc(reg.{opcode.split()[1]});"
+                elif 'DEC' in opcode and len(opcode.split()[1]) == 1:
+                    func = f" dec(reg.{opcode.split()[1]});"
+
+                elif 'LD' in opcode and len(opcode.split()[1]) == 1 and len(opcode.split()[2]) == 1:
+                    func = f" load(reg.{opcode.split()[1]}, reg.{opcode.split()[2]});"
+
+                else:
+                    opcode = opcode + " | NOT IMPLEMENTED"
+
                 #1 byte row
-                row = f"\tcase 0x{hex}: std::cout << HEXCOUNT(pc) << \" {opcode}\\n\"; break;\n"
+                row = f"\tcase 0x{hex}: std::cout << \" {opcode} \\n\"; {func} break;\n"
 
             print(row)
             f.write(row)

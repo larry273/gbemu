@@ -26,7 +26,7 @@ struct reg {
     uint8_t C;
     uint8_t D;
     uint8_t E;
-    uint8_t F;
+    uint8_t F; //flag register 7=Zero 6=Subtract(N) 5=Half Carry 4=Carry 3-0 nada
     uint8_t H;
     uint8_t L;
     //16 bit
@@ -40,23 +40,46 @@ public:
     cpu();
     void cpu_loop();
     int pc = 0;
+
+
+
+private:
+    //FLAGS
+    const int FLAGZERO = 0b10000000;
+    const int FLAGSUB = 0b01000000;
+    const int FLAGHALFCARRY = 0b00100000;
+    const int FLAGCARRY = 0b0001000;
+
+    void setFlag(const int flag, bool result);
+
     //cpu registers
     struct reg reg;
+
+    int decodeByte(struct gbData &gbdata, int &pc);
+
 
     void readFiletoBytes(struct gbData &gbdata);
     //pair two 8 bit registers for one 16 bit reg
     uint16_t pairRegister(uint8_t &regA, uint8_t &regB);
     //8 bit register loads
     void load(uint8_t &regA, uint8_t &regB);
-    void load(uint8_t &regA, uint8_t data);
-    void load(uint8_t &regA, uint8_t &regB, uint8_t data);
-    void load(uint8_t &regA, uint8_t &regB, uint8_t &regC, int ldType);
-    void load(uint16_t data, uint8_t &regA);
+    void load(uint8_t &regA, uint8_t *data);
+    //TODO 8 bit loads to 16 bit memory location
 
-    //16 bit register loads
-    //TODO
+    //8 bit arithmetic
+    void add(uint8_t &regA, uint8_t &data);
+    void sub(uint8_t &regA, uint8_t &data);
+    void sbc(uint8_t &regA, uint8_t &data);
+    void logXor(uint8_t &regA, uint8_t &regB);
+    void logAnd(uint8_t &regA, uint8_t &regB);
+    void logOr(uint8_t &regA, uint8_t &regB);
+    void inc(uint8_t &regA);
+    void dec(uint8_t &regA);
 
-    //int decodeByte(struct gbData &gbdata, int &pc);
+    void nop();
+
+    //TODO16 bit register loads
+
 
 
 };

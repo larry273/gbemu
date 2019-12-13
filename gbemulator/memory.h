@@ -22,14 +22,18 @@ class memory
 {
 public:
     memory();
+    //write value to main memory
+    void write(uint8_t data);
+    //read value from main memory
+    void read(uint16_t location);
 
 
 private:
-    uint8_t ram[8196];      //C000-E000
-    uint8_t echoRam[8196];  //E000-FE00
-    uint8_t videoram[8196]; //8000-A000
-    uint8_t smallRam[128];  //FF80-FFFF
-    uint8_t spriteRam[160]; //FE00-FEA0
+    uint8_t mem[8196];      //C000-E000
+    uint8_t echoMem[8196];  //E000-FE00
+    uint8_t videoMem[8196]; //8000-A000
+    uint8_t smallMem[128];  //FF80-FFFF
+    uint8_t spriteMem[160]; //FE00-FEA0
 };
 
 

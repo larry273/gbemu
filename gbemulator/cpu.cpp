@@ -38,35 +38,79 @@ void cpu::readFiletoBytes(struct gbData &gbdata){
 void cpu::load(uint8_t &regA, uint8_t &regB){
     regA = regB;
 }
-void cpu::load(uint8_t &regA, uint8_t data){
-    regA = data;
-}
-void cpu::load(uint8_t &regA, uint8_t &regB, uint8_t data){
-    regA = 0x00;
-    regB = data;
 
+void cpu::load(uint8_t &regA, uint8_t *data){
+    regA = *data;
+    //takes 2 cycles
 }
-void cpu::load(uint8_t &regA, uint8_t &regB, uint8_t &regC, int ldType){
-    //8 into 16 bit
-    if (ldType == 1){
-        regA = 0x00;
-        regB = regC;
-    }
-    else{     //16 into 8 bit
-        regA = regC;
-    }
 
-}
+
 //TODO write memory class for cpu
 //TODO write to memory address
-void cpu::load(uint16_t data, uint8_t &regA){
+
+//8 bit arithmetic
+void cpu::inc(uint8_t &regA){
+    uint8_t r = regA + 1;
+
+    this->setFlag(FLAGZERO, r == 0);
+    this->setFlag(FLAGSUB, false);
+    this->setFlag(FLAGHALFCARRY, ((regA & 0xF) + (1 & 0xF)) > 0xF); //set if carry to bit 4
+    regA = r;
+}
+void cpu::dec(uint8_t &regA){
+    uint8_t r = regA - 1;
+
+    this->setFlag(FLAGZERO, r == 0);
+    this->setFlag(FLAGSUB, true);
+    this->setFlag(FLAGHALFCARRY, ((regA & 0xF) - (1 & 0xF)) < 0); //set if no borrow from bit 4
+    regA = r;
+}
+void cpu::logAnd(uint8_t &regA, uint8_t &regB){
+    regA = regA & regB;
+
+    this->setFlag(FLAGZERO, regA == 0);
+    this->setFlag(FLAGSUB, false);
+    this->setFlag(FLAGHALFCARRY, true); //set if carry to bit 4
+    this->setFlag(FLAGCARRY, false);
+}
+
+void cpu::logOr(uint8_t &regA, uint8_t &regB){
+    regA = regA ^ regB;
+
+    this->setFlag(FLAGZERO, regA == 0);
+    this->setFlag(FLAGSUB, false);
+    this->setFlag(FLAGHALFCARRY, false); //set if carry to bit 4
+    this->setFlag(FLAGCARRY, false);
+}
+
+void cpu::logXor(uint8_t &regA, uint8_t &regB){
+    regA = regA ^ regB;
+
+    this->setFlag(FLAGZERO, regA == 0);
+    this->setFlag(FLAGSUB, false);
+    this->setFlag(FLAGHALFCARRY, false); //set if carry to bit 4
+    this->setFlag(FLAGCARRY, false);
+}
+
+
+//set register flags
+void cpu::setFlag(const int flag, bool result){
+    if (result){
+        this->reg.F |= flag;
+    }
+    else {
+        this->reg.F &= ~flag;
+    }
+}
+
+void cpu::nop(){
+    std::cout << "do nothing\n";
 }
 
 
 //cpu loop
 void cpu::cpu_loop(){
 
-    opcode opcode;
     bool isCpuRunning = false;
 
 
@@ -76,7 +120,7 @@ void cpu::cpu_loop(){
     //in loop
     //call read from file byte with pos
     this->readFiletoBytes(gbdata);
-    opcode.decodeByte(gbdata, this->pc);
+    this->decodeByte(gbdata, this->pc);
 
     //main loop
     while(isCpuRunning){
