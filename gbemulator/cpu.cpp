@@ -4,6 +4,7 @@
 
 cpu::cpu()
 {
+    reg.PC = 0;
     cpu_loop();
 }
 
@@ -38,15 +39,20 @@ void cpu::readFiletoBytes(struct gbData &gbdata){
 void cpu::load(uint8_t &regA, uint8_t &regB){
     regA = regB;
 }
-
 void cpu::load(uint8_t &regA, uint8_t *data){
     regA = *data;
-    //takes 2 cycles
+}
+void cpu::load(uint8_t &regA, uint16_t memLoc){
+    uint8_t data = mem.read(memLoc);
+    regA = data;
+}
+void cpu::load(uint16_t memLoc, uint8_t &regA){
+    mem.write(memLoc, regA);
+}
+void cpu::load(uint16_t memLoc, uint16_t &regA){
+    mem.write(memLoc, regA);
 }
 
-
-//TODO write memory class for cpu
-//TODO write to memory address
 
 //8 bit arithmetic
 void cpu::inc(uint8_t &regA){
@@ -65,7 +71,7 @@ void cpu::dec(uint8_t &regA){
     this->setFlag(FLAGHALFCARRY, ((regA & 0xF) - (1 & 0xF)) < 0); //set if no borrow from bit 4
     regA = r;
 }
-void cpu::logAnd(uint8_t &regA, uint8_t &regB){
+void cpu::logAnd(uint8_t &regA, uint8_t regB){
     regA = regA & regB;
 
     this->setFlag(FLAGZERO, regA == 0);
@@ -74,7 +80,7 @@ void cpu::logAnd(uint8_t &regA, uint8_t &regB){
     this->setFlag(FLAGCARRY, false);
 }
 
-void cpu::logOr(uint8_t &regA, uint8_t &regB){
+void cpu::logOr(uint8_t &regA, uint8_t regB){
     regA = regA ^ regB;
 
     this->setFlag(FLAGZERO, regA == 0);
@@ -83,7 +89,7 @@ void cpu::logOr(uint8_t &regA, uint8_t &regB){
     this->setFlag(FLAGCARRY, false);
 }
 
-void cpu::logXor(uint8_t &regA, uint8_t &regB){
+void cpu::logXor(uint8_t &regA, uint8_t regB){
     regA = regA ^ regB;
 
     this->setFlag(FLAGZERO, regA == 0);
@@ -92,6 +98,82 @@ void cpu::logXor(uint8_t &regA, uint8_t &regB){
     this->setFlag(FLAGCARRY, false);
 }
 
+void cpu::add(uint8_t &regA, uint8_t data){
+    uint16_t a = uint16_t(regA);
+    uint16_t d = uint16_t(data);
+    uint16_t r = regA + data;
+
+    this->setFlag(FLAGZERO, (r & 0xFF) == 0);
+    this->setFlag(FLAGSUB, false);
+    this->setFlag(FLAGHALFCARRY, ((a & 0x0F) + (d & 0x0F)) > 0x0F); //set if carry to bit 4
+    this->setFlag(FLAGCARRY, r > 0xFF);
+    regA = (r & 0xFF);
+}
+void cpu::sub(uint8_t &regA, uint8_t data){
+    int16_t a = int16_t(regA);
+    int16_t d = int16_t(data);
+
+    int16_t r = a - d;
+
+    this->setFlag(FLAGZERO, (r & 0xFF) == 0);
+    this->setFlag(FLAGSUB, true);
+    this->setFlag(FLAGHALFCARRY, ((a & 0xF) - (d & 0xF)) < 0); //set if carry to bit 4
+    this->setFlag(FLAGCARRY, r < 0);
+    regA = (r & 0xFF);
+}
+void cpu::sbc(uint8_t &regA, uint8_t data){
+    uint16_t c = (reg.F & FLAGCARRY) ? 1 : 0 ;
+    int16_t a = int16_t(regA);
+    int16_t d = int16_t(data);
+
+    int16_t r = a - d - c;
+
+    this->setFlag(FLAGZERO, (r & 0xFF) == 0);
+    this->setFlag(FLAGSUB, true);
+    this->setFlag(FLAGHALFCARRY, ((a & 0x0F) - (d & 0x0F) - c) < 0); //set if carry to bit 4
+    this->setFlag(FLAGCARRY, r < 0);
+    regA = (r & 0xFF);
+}
+void cpu::adc(uint8_t &regA, uint8_t data){
+    uint16_t c = (reg.F & FLAGCARRY) ? 1 : 0 ;
+    uint16_t a = uint16_t(regA);
+    uint16_t d = uint16_t(data);
+
+    int16_t r = a + d + c;
+
+    this->setFlag(FLAGZERO, (r & 0xFF) == 0);
+    this->setFlag(FLAGSUB, false);
+    this->setFlag(FLAGHALFCARRY, ((a & 0x0F) + (d & 0x0F) + c) > 0x0F); //set if carry to bit 4
+    this->setFlag(FLAGCARRY, r > 0xFF);
+    regA = (r & 0xFF);
+
+}
+
+void cpu::cp(uint8_t &regA, uint8_t data){
+    int16_t a = int16_t(regA);
+    int16_t d = int16_t(data);
+
+    this->setFlag(FLAGZERO, (regA == data));
+    this->setFlag(FLAGSUB, true);
+    this->setFlag(FLAGHALFCARRY, ((a & 0xF) - (d & 0xF)) < 0); //set if carry to bit 4
+    this->setFlag(FLAGCARRY, regA > data);
+}
+
+//stack operations
+void cpu::push(uint8_t &regA, uint8_t &regB){
+    reg.SP--;
+    mem.write(reg.SP, regA);
+    reg.SP--;
+    mem.write(reg.SP, regB);
+}
+void cpu::pop(uint8_t &regA, uint8_t &regB){
+    regA = mem.read(reg.SP);
+    reg.SP++;
+    regB = mem.read(reg.SP);
+    reg.SP++;
+}
+void cpu::decSP(){ reg.SP--;}
+void cpu::incSP(){ reg.SP++;}
 
 //set register flags
 void cpu::setFlag(const int flag, bool result){
@@ -103,6 +185,16 @@ void cpu::setFlag(const int flag, bool result){
     }
 }
 
+//pair register get memory location
+uint16_t cpu::pairReg(uint8_t &regA, uint8_t &regB){
+    return (regA << 8) + regB;
+}
+uint8_t cpu::pairData(uint8_t &regA, uint8_t &regB){
+    return mem.read(pairReg(regA, regB));
+}
+
+
+
 void cpu::nop(){
     std::cout << "do nothing\n";
 }
@@ -113,14 +205,13 @@ void cpu::cpu_loop(){
 
     bool isCpuRunning = false;
 
-
     struct gbData gbdata; //gb data file
     gbdata.filename = "cpu_instrs.gb";
 
     //in loop
     //call read from file byte with pos
     this->readFiletoBytes(gbdata);
-    this->decodeByte(gbdata, this->pc);
+    this->decodeByte(gbdata, reg.PC);
 
     //main loop
     while(isCpuRunning){

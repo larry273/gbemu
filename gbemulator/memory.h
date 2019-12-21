@@ -2,6 +2,9 @@
 #define MEMORY_H
 #include <stdio.h>
 #include <iomanip>
+#include <iostream>
+#include <vector>
+
 
 /*
  * interrupt enable reg     FFFF
@@ -18,24 +21,28 @@
  * 16kB rom bank 0          0000 ---
  */
 
+#define HEX(x) std::setw(2) << std::setfill('0') << std::hex << int(x)
+#define HEX16(x) std::setw(4) << std::setfill('0') << std::hex << int(x)
+
+
 class memory
 {
 public:
     memory();
-    //write value to main memory
-    void write(uint8_t data);
-    //read value from main memory
-    void read(uint16_t location);
+    void write(uint16_t absoluteLoc, uint8_t data);
+    uint8_t read(uint16_t absoluteLoc);
+    void clearMemory();
 
 
 private:
-    uint8_t mem[8196];      //C000-E000
-    uint8_t echoMem[8196];  //E000-FE00
-    uint8_t videoMem[8196]; //8000-A000
-    uint8_t smallMem[128];  //FF80-FFFF
-    uint8_t spriteMem[160]; //FE00-FEA0
-};
+    std::vector<uint8_t> mainMem;  //C000-E000
+    std::vector<uint8_t> echoMem;  //E000-FE00
+    std::vector<uint8_t> videoMem; //8000-A000
+    std::vector<uint8_t> smallMem;  //FF80-FFFF
+    std::vector<uint8_t> spriteMem; //FE00-FEA0
 
+    bool inRange(uint16_t low, uint16_t high, uint16_t loc);
+};
 
 
 #endif // MEMORY_H

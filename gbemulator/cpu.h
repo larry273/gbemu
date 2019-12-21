@@ -6,7 +6,8 @@
 #include <vector>
 #include <iomanip>
 #include <string>
-#include "opcode.h"
+
+#include "memory.h"
 
 #define HEX(x) std::setw(2) << std::setfill('0') << std::hex << int(x)
 #define HEXCOUNT(x) std::setw(6) << std::setfill('0') << std::hex << int(x)
@@ -39,9 +40,6 @@ class cpu
 public:
     cpu();
     void cpu_loop();
-    int pc = 0;
-
-
 
 private:
     //FLAGS
@@ -51,36 +49,55 @@ private:
     const int FLAGCARRY = 0b0001000;
 
     void setFlag(const int flag, bool result);
+    //pair two 8 bit registers for one 16 bit reg
+    uint16_t pairReg(uint8_t &regA, uint8_t &regB);
+    uint8_t pairData(uint8_t &regA, uint8_t &regB);
 
     //cpu registers
     struct reg reg;
 
-    int decodeByte(struct gbData &gbdata, int &pc);
+    //memory
+    memory mem;
 
-
+    int decodeByte(struct gbData &gbdata, uint16_t &pc);
     void readFiletoBytes(struct gbData &gbdata);
-    //pair two 8 bit registers for one 16 bit reg
-    uint16_t pairRegister(uint8_t &regA, uint8_t &regB);
+
     //8 bit register loads
     void load(uint8_t &regA, uint8_t &regB);
     void load(uint8_t &regA, uint8_t *data);
-    //TODO 8 bit loads to 16 bit memory location
+
+    //8 bit loads from/to memory locations
+    void load(uint8_t &regA, uint16_t memLoc);
+    void load(uint16_t memLoc, uint8_t &regA);
+    void load(uint16_t memLoc, uint16_t &regA);
 
     //8 bit arithmetic
-    void add(uint8_t &regA, uint8_t &data);
-    void sub(uint8_t &regA, uint8_t &data);
-    void sbc(uint8_t &regA, uint8_t &data);
-    void logXor(uint8_t &regA, uint8_t &regB);
-    void logAnd(uint8_t &regA, uint8_t &regB);
-    void logOr(uint8_t &regA, uint8_t &regB);
+    void add(uint8_t &regA, uint8_t data);
+    void sub(uint8_t &regA, uint8_t data);
+    void sbc(uint8_t &regA, uint8_t data);
+    void adc(uint8_t &regA, uint8_t data);
+    void logXor(uint8_t &regA, uint8_t regB);
+    void logAnd(uint8_t &regA, uint8_t regB);
+    void logOr(uint8_t &regA, uint8_t regB);
     void inc(uint8_t &regA);
     void dec(uint8_t &regA);
+    void cp(uint8_t &regA, uint8_t data);
+
+    //stack operations
+    void decSP();
+    void incSP();
+    void push(uint8_t &regA, uint8_t &regB);
+    void pop(uint8_t &regA, uint8_t &regB);
+    void call(uint16_t data);
+
+    //returns
+    void ret();
+    void ret(std::string condition); //NZ,Z,NC,C
+    void reti();
 
     void nop();
 
     //TODO16 bit register loads
-
-
 
 };
 

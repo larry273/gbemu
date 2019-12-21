@@ -5,11 +5,10 @@ import QtQuick.Layouts 1.3
 
 
 ApplicationWindow {
-    id: applicationWindow
     visible: false
-    width: 640
+    width: 800
     height: 480
-    title: qsTr("Gameboy Emulator")
+    title: "Gameboy Emulator"
 
     //menu containing two menu items
     menuBar: MenuBar {
@@ -20,7 +19,7 @@ ApplicationWindow {
                 onTriggered: console.log("Load action triggered");
             }
             MenuItem {
-                text: qsTr("&Close")
+                text: qsTr("&Close File")
                 onTriggered: console.log("close action triggered");
             }
             MenuItem {
@@ -46,14 +45,65 @@ ApplicationWindow {
     }
 
     GridLayout {
-        id: gridLayout
-        x: 237
-        y: 149
-        width: 210
-        height: 166
+        anchors.fill: parent
+        columns: 2
+
+
+
+        Image {
+            id: image
+            width: 100
+            height: 100
+            fillMode: Image.PreserveAspectFit
+            source: "qrc:/qtquickplugin/images/template_image.png"
+        }
+
+        ColumnLayout {
+            TabBar {
+                id: bar
+                width: parent
+                height: parent * 0.2
+                TabButton {
+                    text: qsTr("Memory")
+                }
+
+                TabButton {
+                    text: qsTr("Registers")
+                }
+                TabButton {
+                    text: qsTr("Video Memory")
+                }
+
+            }
+
+            StackLayout {
+                id: stackLay
+                currentIndex: bar.currentIndex
+                width: parent
+                height: parent * 0.8
+                Item {
+                    id: homeTab
+                    Rectangle {
+                        color: 'red'
+                        anchors.fill: parent
+                    }
+                }
+                Item {
+                    id: discoverTab
+                    Rectangle {
+                        color: 'blue'
+                        anchors.fill: parent
+                    }
+                }
+                Item {
+                    id: activityTab
+                    Rectangle {
+                        color: 'green'
+                        anchors.fill: parent
+                    }
+                }
+            }
+        }
+
     }
-
-
-
-
 }
