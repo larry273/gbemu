@@ -21,6 +21,9 @@
  * 16kB rom bank 0          0000 ---
  */
 
+//0000-00FF boot rom
+
+
 #define HEX(x) std::setw(2) << std::setfill('0') << std::hex << int(x)
 #define HEX16(x) std::setw(4) << std::setfill('0') << std::hex << int(x)
 
@@ -33,13 +36,18 @@ public:
     uint8_t read(uint16_t absoluteLoc);
     void clearMemory();
 
+    std::vector<uint8_t> gameRom;
+    std::vector<uint8_t> gameRomSwitchable;
 
-private:
+
     std::vector<uint8_t> mainMem;  //C000-E000
     std::vector<uint8_t> echoMem;  //E000-FE00
     std::vector<uint8_t> videoMem; //8000-A000
     std::vector<uint8_t> smallMem;  //FF80-FFFF
-    std::vector<uint8_t> spriteMem; //FE00-FEA0
+    std::vector<uint8_t> spriteMem; //FE00-FE9F
+
+
+private:
 
     bool inRange(uint16_t low, uint16_t high, uint16_t loc);
 };

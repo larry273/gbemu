@@ -15,6 +15,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     cpu.cpp \
+    interface.cpp \
     main.cpp \
     memory.cpp \
     opcode.cpp
@@ -34,4 +35,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 HEADERS += \
     cpu.h \
+    interface.h \
     memory.h
