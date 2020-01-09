@@ -73,59 +73,65 @@ with open(out_file, 'w') as f:
             else:
                 if 'RLC' in opcode and len(opcode.split()[1]) == 1:
                     reg = opcode.split()[1]
-                    func = f" rlc(reg.{reg});"
+                    func = f" rlc(reg.{reg}); cycles=8;"
                 
                 elif 'RRC' in opcode and len(opcode.split()[1]) == 1:
                     reg = opcode.split()[1]
-                    func = f" rrc(reg.{reg});"
+                    func = f" rrc(reg.{reg}); cycles=8;"
                 
                 elif 'SRL' in opcode and len(opcode.split()[1]) == 1:
                     reg = opcode.split()[1]
-                    func = f" srl(reg.{reg});"
+                    func = f" srl(reg.{reg}); cycles=8;"
                 
                 elif 'RL' in opcode and len(opcode.split()[1]) == 1:
                     reg = opcode.split()[1]
-                    func = f" rl(reg.{reg});"
+                    func = f" rl(reg.{reg}); cycles=8;"
 
                 elif 'RR' in opcode and len(opcode.split()[1]) == 1:
                     reg = opcode.split()[1]
-                    func = f" rr(reg.{reg});"
+                    func = f" rr(reg.{reg}); cycles=8;"
 
                 elif 'SLA' in opcode and len(opcode.split()[1]) == 1:
                     reg = opcode.split()[1]
-                    func = f" sla(reg.{reg});"
+                    func = f" sla(reg.{reg}); cycles=8;"
 
                 elif 'SRA' in opcode and len(opcode.split()[1]) == 1:
                     reg = opcode.split()[1]
-                    func = f" sra(reg.{reg});"
+                    func = f" sra(reg.{reg}); cycles=8;"
 
                 elif 'SWAP' in opcode and len(opcode.split()[1]) == 1:
                     reg = opcode.split()[1]
-                    func = f" swap(reg.{reg});"
+                    func = f" swap(reg.{reg}); cycles=8;"
                 
                 elif 'BIT' in opcode and len(opcode.split()[2]) == 1:
                     reg = opcode.split()[2]
                     bit = bit_dict[opcode.split()[1]]
-                    func = f" bit({bit}, reg.{reg});"
+                    func = f" bit({bit}, reg.{reg}); cycles=8;"
 
                 elif 'RES' in opcode and len(opcode.split()[2]) == 1:
                     reg = opcode.split()[2]
                     bit = bit_dict[opcode.split()[1]]
-                    func = f" res({bit}, reg.{reg});"
+                    func = f" res({bit}, reg.{reg}); cycles=8;"
 
                 elif 'SET' in opcode and len(opcode.split()[2]) == 1:
                     reg = opcode.split()[2]
                     bit = bit_dict[opcode.split()[1]]
-                    func = f" set({bit}, reg.{reg});"
+                    func = f" set({bit}, reg.{reg}); cycles=8;"
                 
                 elif len(opcode.split()) == 2:
                     ff = opcode.split()[0].lower()
-                    func = f" {ff}(reg.A, true);"
+                    func = f" {ff}(reg.A, true); cycles=16;"
 
                 elif len(opcode.split()) > 2:
                     ff = opcode.split()[0].lower()
                     bit = bit_dict[opcode.split()[1]]
-                    func = f" {ff}({bit}, reg.A, true);"
+
+                    if ff == 'bit':
+                        cycle = 12
+                    else:
+                        cycle = 16
+
+                    func = f" {ff}({bit}, reg.A, true); cycles={cycle};"
 
                 else:
                     opcode = opcode + " | NOT IMPLEMENTED"

@@ -1,12 +1,28 @@
 #include "interface.h"
 
+#include <QQmlApplicationEngine>
+
+
 Interface::Interface(QObject *parent) : QObject(parent){
     cpu = new CPU;
     cpu->start();
+
+    gpu = cpu->gpu;
+    //gpu = new graphics(&cpu->mem);
+
+    image = QImage(160,144,QImage::Format_RGB32);
+    image.fill(QColor("black"));
+
     //connect cpu value changes
     connect(cpu, &CPU::regValChanged, this, &Interface::updateRegValues);
     connect(cpu, &CPU::memoryChanged, this, &Interface::updateMemory);
+    connect(cpu, &CPU::vidMemChanged, this, &Interface::updateVideoMemory);
+    connect(cpu, &CPU::flagsChanged, this, &Interface::updateFlags);
+    connect(cpu, &CPU::opcodeChanged, this, &Interface::updateOpcode);
 
+
+    //connect(cpu, &CPU::frameChanged, this, &Interface::updateFrame);
+    connect(gpu, &graphics::frameCompleted, this, &Interface::updateFrame);
 
 }
 
@@ -25,11 +41,60 @@ void Interface::updateMemory(){
     s_memory = cpu->getMemory();
     emit memoryChanged();
 }
+void Interface::updateVideoMemory(){
+    s_videoMem = cpu->getVidMemory();
+    emit vidMemChanged();
+}
+void Interface::updateFlags(){
+    s_flags = cpu->getFlags();
+    emit flagsChanged();
+}
 
+void Interface::updateFrame(){
+    image = gpu->sendFrame();
+    emit imageChanged(image);
+}
+void Interface::updateOpcode(){
+    s_opcode = cpu->getOpcode();
+    emit opcodeChanged();
+}
+
+//debugging tools
+bool Interface::debug(){
+    return cpu->debug;
+}
+bool Interface::isWait(){
+    return cpu->nextOpCode;
+}
+void Interface::enterDebug(const bool &){
+    cpu->debug = !cpu->debug;
+
+    if (!cpu->debug){
+        cpu->nextOpCode = false;
+    }
+    else{
+        cpu->nextOpCode = true;
+    }
+    emit debugChanged();
+}
+void Interface::nextOpcode(const bool &){
+    cpu->nextOpCode = !cpu->nextOpCode;
+    emit waitChanged();
+}
+
+QString Interface::opcode(){
+    return s_opcode;
+}
+
+QString Interface::flags(){
+    return s_flags;
+}
 QString Interface::memory(){
     return s_memory;
 }
-
+QString Interface::vidMemory(){
+    return s_videoMem;
+}
 QString Interface::regVals(){
     return s_regVals;
 }
@@ -53,7 +118,6 @@ QString Interface::regSP(){
 }
 
 void Interface::test(){
-    //qDebug() << "test function \n";
-    s_regVals += " more ducks";
+    s_regVals += " and more ducks";
     emit regValsChanged();
 }

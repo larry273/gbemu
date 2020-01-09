@@ -5,13 +5,15 @@
 #include <fstream>
 #include <vector>
 #include <iomanip>
-#include <string>
 
 #include <QObject>
 #include <QThread>
 #include <QString>
+#include <QElapsedTimer>
+
 
 #include "memory.h"
+#include "graphics.h"
 
 #define HEX(x) std::setw(2) << std::setfill('0') << std::hex << int(x)
 #define HEXCOUNT(x) std::setw(6) << std::setfill('0') << std::hex << int(x)
@@ -48,14 +50,32 @@ public:
     void cpu_loop();
     void run();
 
+    int cycles;
+    memory mem;
+    graphics *gpu;
+
+    bool debug = false;
+    bool nextOpCode = true;
+
+    void reset();
+    void resetNoBoot();
+
+    //interface methods
     //return values of all registers into vector
     std::vector<int> getRegValues();
-    //get memory
+    //get memory values
     QString getMemory();
+    QString getVidMemory();
+    QString getFlags();
+    QString getOpcode();
 
 signals:
     void regValChanged();
     void memoryChanged();
+    void vidMemChanged();
+    void frameChanged();
+    void flagsChanged();
+    void opcodeChanged();
 
 private:
     //FLAGS
@@ -73,6 +93,14 @@ private:
     const int BITSIX =      0b01000000;
     const int BITSEVEN =    0b10000000;
 
+    float CLOCK_SPEED = 4.194304 * 1e6;
+    //cpu registers
+    struct reg reg;
+
+    bool interruptsEnabled;
+    struct gbData gbdata;
+    QString currentOpCode;
+
     void setFlag(const int flag, bool result);
     //pair two 8 bit registers for one 16 bit reg
     uint16_t pairReg(uint8_t &regA, uint8_t &regB);
@@ -81,12 +109,10 @@ private:
     uint8_t pairRegData(uint8_t &regA, uint8_t &regB);
     void pairRegSet(uint8_t &regA, uint8_t &regB, uint16_t data);
 
-    //cpu registers
-    struct reg reg;
-    memory mem;
-    bool interruptsEnabled;
 
-    struct gbData gbdata;
+
+
+    void performInterrupts(uint16_t &pc);
 
     //8 bit register loads
     void load(uint8_t &regA, uint8_t &regB);
@@ -166,6 +192,7 @@ private:
     void ccf();
     void scf();
     void nop();
+    void halt();
     void stop();
 
     //jump operations
@@ -183,10 +210,10 @@ private:
 
     void rst(uint8_t byte);
 
-    void decodeByte(struct gbData &gbdata, uint16_t &pc);
+    void decodeByte(uint16_t &pc);
     void decodePreByte(uint8_t bitCode); //0xCB prefixed opcode
     void readFiletoBytes(struct gbData &gbdata);
-
+    QString formatMemory(std::vector<uint8_t> data, int count);
 
 };
 

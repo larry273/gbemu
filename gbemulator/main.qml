@@ -8,6 +8,7 @@ import Interface 1.0
 
 
 ApplicationWindow {
+    id: applicationWindow
     visible: true
     width: 800
     height: 480
@@ -16,7 +17,6 @@ ApplicationWindow {
     Interface {
         id: gameboy
     }
-
 
 
     //menu containing two menu items
@@ -53,34 +53,79 @@ ApplicationWindow {
         }
     }
 
+
+
     GridLayout {
+        width: 800
         anchors.fill: parent
         columns: 2
 
-        Image {
-            id: image
-            width: 100
-            height: 100
-            fillMode: Image.PreserveAspectFit
-            source: "qrc:/qtquickplugin/images/template_image.png"
+        ColumnLayout{
+            anchors.fill: parent
+
+            Image {
+                id: gbbg
+                fillMode: Image.PreserveAspectFit
+                source: "overlay.jpg"
+            }
+
+            Image {
+                id: image
+                property bool counter: false
+                Layout.preferredHeight: 144
+                Layout.preferredWidth: 160
+
+                anchors.left: gbbg.right
+                anchors.top: gbbg.top
+                anchors.leftMargin: -232
+                anchors.topMargin: 30
+
+                z: 10
+                source: "image://live/image"
+                cache: false
+
+
+                function reload() {
+                    counter = !counter
+                    source = "image://live/image?id=" + counter
+                }
+            }
+
+
+            Connections{
+                    target: imageProvider
+                    onImageChanged: image.reload()
+            }
         }
+
+
+
+
+
+
+
 
         ColumnLayout {
             TabBar {
                 id: bar
                 width: parent
                 height: parent * 0.2
-                TabButton {
-                    text: qsTr("Memory")
-                }
 
                 TabButton {
                     text: qsTr("CPU")
+                    width: implicitWidth
+                }
+
+                TabButton {
+                    text: qsTr("Memory")
                     checked: false
+                    width: implicitWidth
+
                 }
                 TabButton {
                     text: qsTr("Video Memory")
                     checked: false
+                    width: implicitWidth
                 }
 
             }
@@ -90,35 +135,10 @@ ApplicationWindow {
                 currentIndex: bar.currentIndex
                 width: parent
                 height: parent * 0.8
-                Item {
-                    id: memoryTab
-                    ScrollView {
-                        id: view
-                        anchors.fill: parent
-                        TextArea {
-                            text: gameboy.memory
-                            font.family: "Consolas"
-                            anchors.fill: parent
-                            readOnly: true
-                        }
-                    }
 
-                }
                 Item {
                     id: cpuTab
-                    TextArea {
-                        anchors.fill: parent
-                        text: gameboy.regVals
-                        anchors.topMargin: 124
-                        readOnly: true
-                        wrapMode: TextEdit.Wrap
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                gameboy.test();
-                            }
-                        }
-                    }
+
 
                     Label {
                         id: label
@@ -249,17 +269,115 @@ ApplicationWindow {
                         text: gameboy.regPC
                         horizontalAlignment: Text.AlignHCenter
                     }
+
+                    Label {
+                        id: label2
+                        x: 8
+                        y: 113
+                        width: 83
+                        height: 19
+                        text: qsTr("Flags:")
+                        font.bold: true
+                    }
+
+                    Label {
+                        id: flagVals
+                        x: 72
+                        y: 135
+                        width: 108
+                        height: 19
+                        text: gameboy.flags
+                        horizontalAlignment: Text.AlignLeft
+                    }
+
+                    Label {
+                        id: label4
+                        x: 8
+                        y: 178
+                        width: 88
+                        height: 19
+                        text: qsTr("Instruction:")
+                        font.bold: true
+                    }
+
+                    Button {
+                        id: buttonDebug
+                        x: 363
+                        y: 178
+                        width: 124
+                        height: 40
+                        text: qsTr("Debug")
+                        checkable: true
+                        background: Rectangle {
+                            color: buttonDebug.checked ? "red" : "grey"
+                        }
+                        onClicked: {
+                            gameboy.debug = !gameboy.debug
+                        }
+                    }
+
+                    Button {
+                        id: buttonPC
+                        x: 363
+                        y: 224
+                        width: 124
+                        height: 40
+                        text: qsTr("PC++")
+
+                        onClicked: gameboy.isWait = !gameboy.isWait
+                    }
+
+                    Label {
+                        id: opCode
+                        x: 20
+                        y: 214
+                        width: 101
+                        height: 19
+                        text: gameboy.opcode
+                        horizontalAlignment: Text.AlignLeft
+                    }
+
+                    Label {
+                        id: opCodeMemory
+                        x: 44
+                        y: 245
+                        width: 149
+                        height: 19
+                        text: "Memory: value"
+                        horizontalAlignment: Text.AlignLeft
+                    }
+                }
+                Item {
+                    id: memoryTab
+                    ScrollView {
+                        id: view
+                        anchors.fill: parent
+                        TextArea {
+                            text: gameboy.memory
+                            font.family: "Consolas"
+                            anchors.fill: parent
+                            readOnly: true
+                        }
+                    }
+
                 }
                 Item {
                     id: videoMemory
-                    TextArea {
+                    ScrollView {
+                        id: vidMemview
                         anchors.fill: parent
-                        text: "Insert Video Memory Here"
-                        readOnly: true
+                        TextArea {
+                            text: gameboy.vidMemory
+                            font.family: "Consolas"
+                            anchors.fill: parent
+                            readOnly: true
+                        }
                     }
                 }
             }
         }
-
     }
+
+
+
 }

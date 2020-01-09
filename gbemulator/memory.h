@@ -43,8 +43,9 @@ public:
     std::vector<uint8_t> mainMem;  //C000-E000
     std::vector<uint8_t> echoMem;  //E000-FE00
     std::vector<uint8_t> videoMem; //8000-A000
-    std::vector<uint8_t> smallMem;  //FF80-FFFF
-    std::vector<uint8_t> spriteMem; //FE00-FE9F
+    std::vector<uint8_t> spriteMem; //FE00-FEFF
+    std::vector<uint8_t> smallMem;  //FF00-FFFF
+    std::vector<uint8_t> externalMem;
 
 
 private:

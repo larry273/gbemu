@@ -1,51 +1,85 @@
 #include "cpu.h"
 #include <QDir>
 
+#include <QDebug>
+
 CPU::CPU(){
-    //reg.PC = 0;
-    //cpu_loop();
+    gpu = new graphics(&mem);
 }
 
 void CPU::run(){
     cpu_loop();
+    std::cout << " if you can read this send help \n";
 }
 
 //cpu loop
 void CPU::cpu_loop(){
 
-    bool isCpuRunning = true;
 
-    //struct gbData gbdata; //gb data file
-    //gbdata.filename = "cpu_instrs.gb";
+    bool isCpuRunning = true;
+    QElapsedTimer timer;
+
     QDir::setCurrent("/home/larry/Documents/gbemu/gbemulator");
-    gbdata.filename = "cpu_instrs.gb";
-    //gbdata.filename = "boot.bin";
+    //gbdata.filename = "cpu_instrs.gb";
+    gbdata.filename = "boot.bin";
+
+    //reset registers to default no boot values
+    reset();
 
     this->readFiletoBytes(gbdata);
 
-    //main loop
-    //measure timing
-    clock_t t;
-    t = clock();
-    int instru = 0;
+    int currentCycle = 0;
+    float cyclesPerFrame = CLOCK_SPEED / 60;
+    float frameTime = 1000 / 60;
 
+    //emit gpu->frameCompleted();
+
+    //1 machine cycles = 4 clock cycles
     while(isCpuRunning){
+        //one loop equals one frame
+        timer.restart();
+        cycles = 0;
+        currentCycle = 0;
 
-        decodeByte(gbdata, reg.PC);
-        instru++;
+        //opcodes per frame loop
+        while (currentCycle < cyclesPerFrame){
+            decodeByte(reg.PC);
 
-        if (instru > 200){
-            break;
+            gpu->updateScanline(cycles);
+
+            //performInterrupts(reg.PC);
+
+            currentCycle += cycles;
+
+            //debug stay in loop
+            if (debug){
+
+                emit regValChanged();
+                emit flagsChanged();
+                emit memoryChanged();
+                emit opcodeChanged();
+
+                while(nextOpCode){
+                    //blocking loop
+                }
+
+                //halt emulation until button pressed
+                nextOpCode = true;
+            }
+
         }
-        emit regValChanged();
-        emit memoryChanged();
+
+        //emit memoryChanged();
+        //emit vidMemChanged();
+        //emit flagsChanged();
+
+        //delay timings
+        float delayTime = frameTime - timer.elapsed();
+        if (timer.elapsed() < frameTime){
+            std::cout << "DELAYTIME: " << delayTime << "\n";
+            QThread::msleep(delayTime);
+        }
     }
-
-
-    t = clock() - t;
-    std::cout << "instructions: " << std::dec << instru << "\n";
-    std::cout << "time elapsed: " << std::dec << t*1.0/CLOCKS_PER_SEC  << " seconds. done decoding\n";
-
 }
 
 //read file as bytes
@@ -59,9 +93,8 @@ void CPU::readFiletoBytes(struct gbData &gbdata){
     }
 
     //read content of file into buffer
-
     std::vector<uint8_t> content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-
+    /*
     int count = 0;
     for(unsigned char& c : content) {
         if (count % 16 == 0){
@@ -70,13 +103,14 @@ void CPU::readFiletoBytes(struct gbData &gbdata){
         std::cout << HEX(c) << ' ';
         count++;
     }
-
+    */
 
     gbdata.buffer = content;
+    //add game rom to memory location
     mem.gameRom.insert(mem.gameRom.begin(), content.begin(), content.begin() + 0x3FFF);
+    mem.gameRomSwitchable.insert(mem.gameRomSwitchable.begin(), content.begin() + 0x3FFF, content.begin() + 0x7FFF);
 
-
-    std::cout << "\nfinishing file read \n";
+    std::cout << "\nfinish file read \n";
 }
 
 std::vector<int> CPU::getRegValues(){
@@ -91,20 +125,61 @@ std::vector<int> CPU::getRegValues(){
 }
 
 QString CPU::getMemory(){
-
-    int count = 0x4000;
     QString output;
-    for(unsigned char& c : mem.mainMem) {
-        if (count % 16 == 0){
-            //std::cout << "\n" << std::setw(6) << std::setfill('0') << count/16 << ": ";
-            output += ("\n" + QString::number(count, 16).rightJustified(6, '0') + ": ");
-        }
-        output += QString::number(c, 16).rightJustified(2, '0') + ' ';
-        //std::cout << HEX(c) << ' ';
-        count++;
-    }
+    output += formatMemory(mem.gameRom, 0);
+    output += formatMemory(mem.mainMem, 0x4000);
+    output += formatMemory(mem.smallMem, 0xFF00);
     return output;
 }
+QString CPU::getVidMemory(){
+    QString output;
+    output += formatMemory(mem.videoMem, 0x8000);
+    output += formatMemory(mem.spriteMem, 0xFE00);
+    return output;
+}
+QString CPU::getFlags(){
+    int Z = reg.F >> 7;
+    int N = (reg.F >> 6) & 0x1;
+    int H = (reg.F >> 5) & 0x1;
+    int C = (reg.F >> 4) & 0x1;
+
+    QString output = QString("Z: %1  N: %2  H: %3  C: %4").arg(Z).arg(N).arg(H).arg(C);
+    return output;
+}
+QString CPU::getOpcode(){
+    return currentOpCode;
+}
+
+void CPU::performInterrupts(uint16_t &pc){
+    //interrupt enable register FFFF
+
+}
+
+void CPU::reset(){
+    reg.A =  0;
+    reg.B =  0;
+    reg.C =  0;
+    reg.D =  0;
+    reg.E =  0;
+    reg.F =  0;
+    reg.H =  0;
+    reg.L =  0;
+    reg.SP = 0;
+    reg.PC = 0;
+}
+void CPU::resetNoBoot(){
+    reg.A = 0x01;
+    reg.B = 0x00;
+    reg.C = 0x13;
+    reg.D = 0x00;
+    reg.E = 0xD8;
+    reg.F = 0xB0;
+    reg.H = 0x01;
+    reg.L = 0x4D;
+    reg.SP = 0xFFFE;
+    reg.PC = 0x100;
+}
+
 
 //8 bit register loads
 void CPU::load(uint8_t &regA, uint8_t &regB){
@@ -146,7 +221,8 @@ void CPU::loadSP(uint8_t data1, uint8_t data2){
 //8 bit arithmetic
 void CPU::inc(uint8_t &regA, bool isMem){
     if (isMem){
-        regA = mem.read(pairReg(reg.H, reg.L));
+        //regA = mem.read(pairReg(reg.H, reg.L));
+        inc(reg.H, reg.L);
     }
 
     uint8_t r = regA + 1;
@@ -156,13 +232,14 @@ void CPU::inc(uint8_t &regA, bool isMem){
     this->setFlag(FLAGHALFCARRY, ((regA & 0xF) + (1 & 0xF)) > 0xF); //set if carry to bit 4
     regA = r;
 
-    if (isMem){
-        mem.write(pairReg(reg.H, reg.L), regA);
-    }
+    //if (isMem){
+    //    mem.write(pairReg(reg.H, reg.L), regA);
+    //}
 }
 void CPU::dec(uint8_t &regA, bool isMem){
     if (isMem){
-        regA = mem.read(pairReg(reg.H, reg.L));
+        //regA = mem.read(pairReg(reg.H, reg.L));
+        dec(reg.H, reg.L);
     }
 
     uint8_t r = regA - 1;
@@ -172,9 +249,9 @@ void CPU::dec(uint8_t &regA, bool isMem){
     this->setFlag(FLAGHALFCARRY, ((regA & 0xF) - (1 & 0xF)) < 0); //set if no borrow from bit 4
     regA = r;
 
-    if (isMem){
-        mem.write(pairReg(reg.H, reg.L), regA);
-    }
+    //if (isMem){
+    //    mem.write(pairReg(reg.H, reg.L), regA);
+    //}
 }
 void CPU::logAnd(uint8_t &regA, uint8_t regB){
     regA = regA & regB;
@@ -428,20 +505,20 @@ void CPU::jr(int8_t data){
     jp(reg.PC);
 }
 bool CPU::jr(int8_t data, int flag){
-    bool isReset = true;
+    bool isNotSet = true;
     if (flag == FLAGZERO || flag == FLAGCARRY){
-        isReset = false;
+        isNotSet = false;
     }
     else {
         flag = ~flag;
     }
 
 
-    if ((reg.F & flag) == 0 && isReset){
+    if ((reg.F & flag) == 0 && isNotSet){
         jr(data);
         return true;
     }
-    else if ((reg.F & flag) != 0 && !isReset) {
+    else if ((reg.F & flag) != 0 && !isNotSet) {
         jr(data);
         return true;
     }
@@ -719,8 +796,12 @@ void CPU::daa(){
 void CPU::stop(){
     std::cout << "STOP\n";
 }
-
-
+void CPU::halt(){
+    //halt
+}
+void CPU::nop(){
+    //std::cout << "do nothing\n";
+}
 
 
 
@@ -753,11 +834,19 @@ uint16_t CPU::joinByte(uint8_t byte1, uint8_t byte2){
     return (byte1 << 8) + byte2;
 }
 
-void CPU::nop(){
-    std::cout << "do nothing\n";
+
+
+QString CPU::formatMemory(std::vector<uint8_t> data, int count){
+    QString output;
+    for(uint8_t &c : data) {
+        if (count % 16 == 0){
+            output += ("\n" + QString::number(count, 16).rightJustified(6, '0') + ": ");
+        }
+        output += QString::number(c, 16).rightJustified(2, '0') + ' ';
+        count++;
+    }
+    return output;
 }
-
-
 
 
 
