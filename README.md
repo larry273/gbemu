@@ -1,4 +1,4 @@
-# gbemu
+# Gameboy Emulator
 WIP Gameboy emulator in C++ and Qt(QML) intended for educational purposes.
 
 <br/>
