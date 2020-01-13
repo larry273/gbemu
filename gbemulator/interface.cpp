@@ -20,7 +20,6 @@ Interface::Interface(QObject *parent) : QObject(parent){
     connect(cpu, &CPU::flagsChanged, this, &Interface::updateFlags);
     connect(cpu, &CPU::opcodeChanged, this, &Interface::updateOpcode);
 
-
     //connect(cpu, &CPU::frameChanged, this, &Interface::updateFrame);
     connect(gpu, &graphics::frameCompleted, this, &Interface::updateFrame);
 
@@ -28,12 +27,18 @@ Interface::Interface(QObject *parent) : QObject(parent){
 
 void Interface::updateRegValues(){
     std::vector<int> values = cpu->getRegValues();
-    s_regAF = "0x" + QString::number( values[0], 16).rightJustified(4, '0');
-    s_regBC = "0x" + QString::number( values[1], 16).rightJustified(4, '0');
-    s_regDE = "0x" + QString::number( values[2], 16).rightJustified(4, '0');
-    s_regHL = "0x" + QString::number( values[3], 16).rightJustified(4, '0');
-    s_regPC = "0x" + QString::number( values[4], 16).rightJustified(4, '0');
-    s_regSP = "0x" + QString::number( values[5], 16).rightJustified(4, '0');
+    s_regSet1 = "0x" + QString::number( values[0], 16).rightJustified(4, '0') + "\n"
+                "0x" + QString::number( values[1], 16).rightJustified(4, '0') + "\n"
+                "0x" + QString::number( values[2], 16).rightJustified(4, '0');
+
+    s_regSet2 = "0x" + QString::number( values[3], 16).rightJustified(4, '0') + "\n"
+                "0x" + QString::number( values[4], 16).rightJustified(4, '0') + "\n"
+                "0x" + QString::number( values[5], 16).rightJustified(4, '0');
+
+    //video registers
+    s_regVid =  "0x" + QString::number( values[6], 16).rightJustified(2, '0') + "\n"
+                "0x" + QString::number( values[7], 16).rightJustified(2, '0') + "\n"
+                "0x" + QString::number( values[8], 16).rightJustified(2, '0') + "\n";
     emit regValsChanged();
 }
 
@@ -55,7 +60,7 @@ void Interface::updateFrame(){
     emit imageChanged(image);
 }
 void Interface::updateOpcode(){
-    s_opcode = cpu->getOpcode();
+    s_opcode = cpu->getOpcode() + s_opcode;
     emit opcodeChanged();
 }
 
@@ -77,6 +82,16 @@ void Interface::enterDebug(const bool &){
     }
     emit debugChanged();
 }
+QString Interface::pcInput(){
+    return s_pcInput;
+}
+void Interface::pcInputWrite(const QString &input){
+    s_pcInput = input;
+    bool ok;
+    cpu->pcStop = input.toInt(&ok, 16);
+    emit pcInputChanged();
+}
+
 void Interface::nextOpcode(const bool &){
     cpu->nextOpCode = !cpu->nextOpCode;
     emit waitChanged();
@@ -95,29 +110,14 @@ QString Interface::memory(){
 QString Interface::vidMemory(){
     return s_videoMem;
 }
-QString Interface::regVals(){
-    return s_regVals;
+QString Interface::regSet1(){
+    return s_regSet1;
 }
-QString Interface::regAF(){
-    return s_regAF;
+QString Interface::regSet2(){
+    return s_regSet2;
 }
-QString Interface::regBC(){
-    return s_regBC;
-}
-QString Interface::regDE(){
-    return s_regDE;
-}
-QString Interface::regHL(){
-    return s_regHL;
-}
-QString Interface::regPC(){
-    return s_regPC;
-}
-QString Interface::regSP(){
-    return s_regSP;
+QString Interface::regVid(){
+    return s_regVid;
 }
 
-void Interface::test(){
-    s_regVals += " and more ducks";
-    emit regValsChanged();
-}
+

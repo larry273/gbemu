@@ -25,6 +25,9 @@ void graphics::updateScanline(int cycles){
     //144 visible lines, 153 total scanlines, 7 are invisible
     //456 cpu clock cycles to draw one line
 
+    //update lcd mode
+    LCDStatus();
+
     if (lcdEnabled()){
         scanLineCount -= cycles;
     }
@@ -35,16 +38,18 @@ void graphics::updateScanline(int cycles){
     //draw the entire scan line after 456 cycles have passed
     if (scanLineCount <= 0){
         //increment scan line and read
-        mem->smallMem[0x44] = mem->smallMem[0x44] + 1; //cant use write as it will reset
+        mem->smallMem[0x44]++; //cant use write as it will reset
         uint8_t line = mem->read(0xFF44);
         scanLineCount = 456;
+
+        //std::cout << "CURRENT SCANLINE: " << HEX(line) << "\n";
 
         if (line == 144){
             //interrupt
             emit frameCompleted();
         }
         else if (line > 153){
-            mem->write(0xFF44, 0); //reset to zero
+            mem->smallMem[0x44] = 0; //reset to zero
         }
         else if (line < 144){
             drawScanLine();
@@ -86,22 +91,13 @@ void graphics::renderTiles(){
     uint8_t windowX = mem->read(0xFF4B) - 7;
 
     uint8_t lcdReg = mem->read(0xFF41);
-    uint8_t scanLine = mem->read(0xFF44);
+    const uint8_t scanLine = mem->read(0xFF44);
     uint16_t tileBase;
     int offset = 0; //128 for signed section
 
-    //bit 3 test for tile mem location
-    if (lcdReg & 0x08){
-        tileBase = 0x8000; //unsigned bytes
-    }
-    else{
-        tileBase = 0x8800; //signed bytes
-        offset = 128;
-    }
-
-    //bit 5 window enabled?
     bool renderWindow = false;
     int identityBit = 0x08; //bit 3 for bg
+    //bit 5 window enabled?
     if (lcdReg & 0x20){
         if (windowY <= scanLine){
             renderWindow = true;
@@ -109,8 +105,21 @@ void graphics::renderTiles(){
         }
     }
 
+    //bit 4 test for tile mem location
+    /*
+    if (lcdReg & 0x10){
+        tileBase = 0x8000; //unsigned bytes
+    }
+    else{
+        tileBase = 0x8800; //signed bytes
+        offset = 128;
+    }
+    */
+    //FIX
+    tileBase = 0x8000;
+
     uint16_t identityLoc;
-    //test bit 6 for window identity loc
+    //test bit 6/3 for window/bg identity loc
     if (lcdReg & identityBit){
         identityLoc = 0x9C00;
     }
@@ -118,28 +127,28 @@ void graphics::renderTiles(){
         identityLoc = 0x9800;
     }
 
-    int y;
-    if (renderWindow){
-        y = scanLine + scrollY;
+    int yPos;
+    if (!renderWindow){
+        yPos = scanLine + scrollY;
     }
     else{
-        y = scanLine - windowY;
+        yPos = scanLine - windowY;
     }
 
+    int tileRow = uint8_t(yPos / 8) * 32;
     //draw scanline pixels
     for (int x = 0; x < 160; x++){
-        int actualX = x + scrollX;
+        int xPos = x + scrollX;
         if (renderWindow && x >= windowX){
-            actualX = x - windowX;
+            xPos = x - windowX;
         }
 
-        int tileCol = actualX % 8;
-        int tileRow = (y / 8) * 32;
+        int tileCol = xPos / 8;
         uint16_t tileAddr = identityLoc + tileCol + tileRow;
 
         uint16_t tileLoc;
         if (renderWindow){
-            int8_t tileNum = mem->read(tileAddr);
+            int8_t tileNum = int8_t(mem->read(tileAddr));
              tileLoc = tileBase + ((tileNum + offset) * 16);
         }
         else {
@@ -147,83 +156,94 @@ void graphics::renderTiles(){
              tileLoc = tileBase + ((tileNum + offset) * 16);
         }
 
-        int line = (y % 8) * 2;
+        int line = (yPos % 8) * 2;
         uint8_t byte1 = mem->read(tileLoc + line);
         uint8_t byte2 = mem->read(tileLoc + line + 1);
 
         //determine current bit in tile bytes
-        int colorBit = abs((actualX % 8) - 7);
+        int colorBit = abs((xPos % 8) - 7);
 
         //get color number from 2 tile bytes
         int colorNumber = (byte2 >> colorBit) & 0x1;
-        colorNumber = colorNumber << 1;
+        colorNumber <<= 1;
         colorNumber |= (byte1 >> colorBit) & 0x1;
 
         //bg and window palette 0xFF47
         QColor color = getColour(colorNumber, 0xFF47);
         bgPixels.setPixel(x, scanLine, color.rgb());
     }
-
-
 }
 
 QImage graphics::sendFrame(){
-    QImage test = QImage("/home/larry/Documents/gbemu/gbemulator/image.jpg");
-    return test;
+    //QImage test = QImage("/home/larry/Documents/gbemu/gbemulator/image.jpg");
+    return bgPixels;
 }
 
 void graphics::renderSprites(){
 
 }
 
+//update lcd display operation modes and check interrupts
 void graphics::LCDStatus(){
     uint8_t lcdStatus = mem->read(0xFF41);
-
     //lcd not enabled
     if (!lcdEnabled()){
         scanLineCount = 456;
         mem->write(0xFF44, 0);
-        //set H-BLANK mode
-        lcdStatus &= 0xFC;
+        //set V-BLANK mode
+        lcdStatus = (lcdStatus & 0xFC) | 0x01;
         mem->write(0xFF41, lcdStatus);
         return;
     }
 
     uint8_t currentLine = mem->read(0xFF44);
+    uint8_t currentMode = lcdStatus & 0x3; //lcd mode LSB 2 bits
+    bool doInterrupt = false;
 
-    //test lcd status LSB 2 bits
-    switch (lcdStatus & 0x03) {
-    //H-BLANK
-    case 0x00:
-        break;
-    //V-BLANK
-    case 0x01:
-        break;
-    //Searching Sprites
-    case 0x02:
-        break;
-    //Transfer data to LCD
-    case 0x03:
-        break;
+    int mode = 0;
+    //mode operation
+    //Search Sprites - first 80 cycles
+    //Transfer data - next 172 cycles
+    //H-Blank - remaining cycles
+    //on mode change, lcd interrupt TODO
+
+    //frame completed, reset to V-BLANK
+    if (currentLine >= 144){
+        //VBLANK = 01
+        mode = 1;
+        lcdStatus = (lcdStatus & 0xFD) | 0x01;
+        doInterrupt = (lcdStatus >> 4) & 0x01; //check bit 4 set
     }
 
-    //LCD interrrupts enabled
-    switch (lcdStatus) {
-    //H-BLANK interrupt
-    case 0x04:
-        break;
-    //V-Blank interrupt
-    case 0x08:
-        break;
-    //Sprite interrupts
-    case 0x10:
-        break;
+    //drawing frame modes
+    else{
+        //search sprite mode 10
+        if(scanLineCount >= (456-80)) {
+            mode = 2;
+            lcdStatus = (lcdStatus & 0xFE) | 0x02;
+            doInterrupt = (lcdStatus >> 5) & 0x01; //check bit 5 set
+        }
+        //transfer data mode 11
+        else if (scanLineCount >= (456-80-172)){
+            mode = 3;
+            lcdStatus = (lcdStatus | 0x03);
+        }
+        //h-blank mode 00
+        else{
+            mode = 0;
+            lcdStatus = (lcdStatus & 0xFC);
+            doInterrupt = (lcdStatus >> 3) & 0x01; //check bit 5 set
+        }
+    }
+
+    if (doInterrupt && (mode != currentMode)){
+        //do interrupt
     }
 
     //coincidence flag
-    if (mem->read(0xFF44) == mem->read(0xFF45)){
-        //set to bit 2 to 1
-        mem->write(0xFF41, (lcdStatus | 0x08));
+    if (currentLine == mem->read(0xFF45)){
+        //set to bit 2
+        lcdStatus = lcdStatus | 0x04;
         //if bit 6 is set
         if (lcdStatus & 0x40){
             //do interrupt
@@ -231,11 +251,13 @@ void graphics::LCDStatus(){
     }
     else{
         //set to bit 2 to 0
-        mem->write(0xFF41, (lcdStatus & 0xFB));
+        lcdStatus = lcdStatus & 0xFB;
     }
 
+    mem->write(0xFF41, lcdStatus);
 }
 
+//
 QColor graphics::getColour(uint8_t bits, uint16_t paletteAddr){
     uint8_t palette = mem->read(paletteAddr);
     //bg pallette 0xFF47
@@ -264,8 +286,6 @@ QColor graphics::getColour(uint8_t bits, uint16_t paletteAddr){
     return greyShades[color];
 }
 
-//qimage, .setpixel(pixel, RGB)
-//QRgb value of qcolors
 
 bool graphics::lcdEnabled(){
     //test lcd register bit 7, set

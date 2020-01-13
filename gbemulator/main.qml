@@ -16,6 +16,13 @@ ApplicationWindow {
 
     Interface {
         id: gameboy
+        objectName: "gameboy"
+
+    }
+
+    Shortcut {
+        sequence: "Right"
+        onActivated: gameboy.isWait = !gameboy.isWait
     }
 
 
@@ -93,8 +100,8 @@ ApplicationWindow {
 
 
             Connections{
-                    target: imageProvider
-                    onImageChanged: image.reload()
+                target: imageProvider
+                onImageChanged: image.reload()
             }
         }
 
@@ -113,14 +120,8 @@ ApplicationWindow {
 
                 TabButton {
                     text: qsTr("CPU")
+                    checked: true
                     width: implicitWidth
-                }
-
-                TabButton {
-                    text: qsTr("Memory")
-                    checked: false
-                    width: implicitWidth
-
                 }
                 TabButton {
                     text: qsTr("Video Memory")
@@ -147,6 +148,7 @@ ApplicationWindow {
                         width: 83
                         height: 19
                         text: qsTr("Registers:")
+                        font.family: "Consolas"
                         font.bold: true
                     }
 
@@ -154,162 +156,107 @@ ApplicationWindow {
                         id: label1
                         x: 8
                         y: 25
-                        width: 83
+                        width: 27
                         height: 19
-                        text: qsTr("AF")
+                        text: qsTr("AF:\nBC:\nDE:")
+                        font.family: "Consolas"
                         horizontalAlignment: Text.AlignRight
                     }
 
                     Label {
                         id: labelAF
-                        x: 97
+                        x: 35
                         y: 25
                         width: 83
                         height: 19
-                        text: gameboy.regAF
-                        horizontalAlignment: Text.AlignHCenter
+                        text: gameboy.regSet1
+                        font.family: "Consolas"
+                        horizontalAlignment: Text.AlignLeft
                     }
 
-                    Label {
-                        id: label3
-                        x: 8
-                        y: 50
-                        width: 83
-                        height: 19
-                        text: qsTr("BC")
-                        horizontalAlignment: Text.AlignRight
-                    }
-
-                    Label {
-                        id: labelBC
-                        x: 97
-                        y: 50
-                        width: 83
-                        height: 19
-                        text: gameboy.regBC
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-
-                    Label {
-                        id: label5
-                        x: 8
-                        y: 75
-                        width: 83
-                        height: 19
-                        text: qsTr("DE")
-                        horizontalAlignment: Text.AlignRight
-                    }
-
-                    Label {
-                        id: labelDE
-                        x: 97
-                        y: 75
-                        width: 83
-                        height: 19
-                        text: gameboy.regDE
-                        horizontalAlignment: Text.AlignHCenter
+                    ScrollView {
+                        id: view
+                        x: -300
+                        y: 456
+                        anchors.rightMargin: 8
+                        anchors.leftMargin: 0
+                        anchors.bottomMargin: 8
+                        anchors.topMargin: 220
+                        anchors.fill: parent
+                        TextArea {
+                            text: gameboy.memory
+                            font.pointSize: 10
+                            font.family: "Consolas"
+                            anchors.fill: parent
+                            readOnly: true
+                        }
                     }
 
                     Label {
                         id: label7
-                        x: 186
+                        x: 105
                         y: 25
-                        width: 83
+                        width: 42
                         height: 19
-                        text: qsTr("HL")
+                        text: qsTr("HL:\nSP:\nPC:")
+                        font.family: "Consolas"
                         horizontalAlignment: Text.AlignRight
                     }
 
                     Label {
                         id: labelHL
-                        x: 275
+                        x: 153
                         y: 25
                         width: 83
                         height: 19
-                        text: gameboy.regHL
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-
-                    Label {
-                        id: label9
-                        x: 186
-                        y: 50
-                        width: 83
-                        height: 19
-                        text: qsTr("SP")
-                        horizontalAlignment: Text.AlignRight
-                    }
-
-                    Label {
-                        id: labelSP
-                        x: 275
-                        y: 50
-                        width: 83
-                        height: 19
-                        text: gameboy.regSP
-                        horizontalAlignment: Text.AlignHCenter
-                    }
-
-                    Label {
-                        id: label11
-                        x: 186
-                        y: 75
-                        width: 83
-                        height: 19
-                        text: qsTr("PC")
-                        horizontalAlignment: Text.AlignRight
-                    }
-
-                    Label {
-                        id: labelPC
-                        x: 275
-                        y: 75
-                        width: 83
-                        height: 19
-                        text: gameboy.regPC
-                        horizontalAlignment: Text.AlignHCenter
+                        text: gameboy.regSet2
+                        font.family: "Consolas"
+                        horizontalAlignment: Text.AlignLeft
                     }
 
                     Label {
                         id: label2
                         x: 8
-                        y: 113
+                        y: 100
                         width: 83
                         height: 19
                         text: qsTr("Flags:")
+                        font.family: "Consolas"
                         font.bold: true
                     }
 
                     Label {
                         id: flagVals
-                        x: 72
-                        y: 135
+                        x: 8
+                        y: 125
                         width: 108
                         height: 19
                         text: gameboy.flags
+                        font.family: "Consolas"
                         horizontalAlignment: Text.AlignLeft
                     }
 
                     Label {
                         id: label4
-                        x: 8
-                        y: 178
+                        x: 200
+                        y: 100
                         width: 88
                         height: 19
-                        text: qsTr("Instruction:")
+                        text: qsTr("OpCodes:")
+                        font.family: "Consolas"
                         font.bold: true
                     }
 
                     Button {
                         id: buttonDebug
-                        x: 363
-                        y: 178
-                        width: 124
+                        x: 404
+                        y: 17
+                        width: 83
                         height: 40
                         text: qsTr("Debug")
-                        checkable: true
+                        font.family: "Consolas"
                         background: Rectangle {
-                            color: buttonDebug.checked ? "red" : "grey"
+                            color: gameboy.debug ? "red" : "grey"
                         }
                         onClicked: {
                             gameboy.debug = !gameboy.debug
@@ -318,47 +265,97 @@ ApplicationWindow {
 
                     Button {
                         id: buttonPC
-                        x: 363
-                        y: 224
-                        width: 124
+                        x: 404
+                        y: 58
+                        width: 83
                         height: 40
                         text: qsTr("PC++")
-
+                        font.family: "Consolas"
                         onClicked: gameboy.isWait = !gameboy.isWait
                     }
 
-                    Label {
-                        id: opCode
-                        x: 20
-                        y: 214
-                        width: 101
-                        height: 19
-                        text: gameboy.opcode
-                        horizontalAlignment: Text.AlignLeft
+                    TextInput {
+                        id: pcInput
+                        x: 426
+                        y: 124
+                        width: 64
+                        height: 26
+                        text: gameboy.pcInput
+                        font.pointSize: 12
+                        onTextChanged: gameboy.pcInput = text
+
+                        font.family: "Consolas"
+                        horizontalAlignment: Text.AlignHCenter
                     }
 
-                    Label {
-                        id: opCodeMemory
-                        x: 44
-                        y: 245
-                        width: 149
-                        height: 19
-                        text: "Memory: value"
-                        horizontalAlignment: Text.AlignLeft
-                    }
-                }
-                Item {
-                    id: memoryTab
                     ScrollView {
-                        id: view
-                        anchors.fill: parent
+                        id: opCodeView
+                        x: 201
+                        y: 127
+                        width: 207
+                        height: 87
+                        anchors.rightMargin: 94
+                        anchors.bottomMargin: 196
+                        anchors.leftMargin: 200
+                        anchors.topMargin: 121
                         TextArea {
-                            text: gameboy.memory
+                            text: gameboy.opcode
+                            anchors.rightMargin: -41
+                            anchors.bottomMargin: -3
+                            anchors.leftMargin: 0
+                            anchors.topMargin: 0
                             font.family: "Consolas"
                             anchors.fill: parent
                             readOnly: true
                         }
                     }
+
+                    Label {
+                        id: label6
+                        x: 3
+                        y: 195
+                        width: 88
+                        height: 19
+                        text: qsTr("Memory:")
+                        font.bold: true
+                    }
+
+                    Label {
+                        id: label8
+                        x: 406
+                        y: 101
+                        width: 83
+                        height: 19
+                        text: qsTr("PC Break:")
+                        font.bold: true
+                        font.family: "Consolas"
+                    }
+
+                    Label {
+                        id: labelregVid
+                        x: 277
+                        y: 25
+                        width: 83
+                        height: 69
+                        text: gameboy.regVid
+                        horizontalAlignment: Text.AlignLeft
+                        font.family: "Consolas"
+                    }
+
+                    Label {
+                        id: label10
+                        x: 229
+                        y: 25
+                        width: 48
+                        height: 69
+                        text: qsTr("LCDC:\nSTAT:\nLY:\n")
+                        horizontalAlignment: Text.AlignRight
+                        font.family: "Consolas"
+                    }
+
+                }
+                Item {
+                    id: memoryTab
 
                 }
                 Item {

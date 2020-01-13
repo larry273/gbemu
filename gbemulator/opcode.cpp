@@ -11,700 +11,793 @@ void CPU::decodeByte(uint16_t &pc){
     opbytes = 1; //default 1 byte opcode
     bool isJump = false;
 
-    std::cout << HEXCOUNT(pc);
+    QDebug debugOpCode = qDebug().noquote();
+    if (printOpCode){
+        debugOpCode << HEXPRINT_6(pc);
+    }
+
+    lastOpByte = pc;
+
+    //debugging
+    if (reg.PC == pcStop){ //0X005B lcd on //008e to compare logo data
+        debug = true;
+    }
+    //debug stay in loop
+    if (debug){
+
+        emit memoryChanged();
+        emit opcodeChanged();
+
+        emit regValChanged();
+        emit flagsChanged();
+
+        while(nextOpCode){
+            //blocking loop
+        }
+
+        //halt emulation until button pressed
+        nextOpCode = true;
+    }
+
 
     //opcode decoding
     switch (code) {
-        case 0x00: std::cout << " NOP \n";  nop(); cycles=4; break;
+        case 0x00:  nop(); cycles=4; currentOpCode= "NOP"; break;
         case 0x01:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            load(reg.B, reg.C, val1, val2);
-            std::cout << " LD BC nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=12; break;
+            load(reg.B, reg.C, val2, val1);
+            currentOpCode= "LD BC nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=12;
+            break;
         }
-        case 0x02: std::cout << " LD (BC) A \n";  load(pairReg(reg.B, reg.C), reg.A); cycles=8; break;
-        case 0x03: std::cout << " INC BC \n";  inc(reg.B, reg.C); cycles=8; break;
-        case 0x04: std::cout << " INC B \n";  inc(reg.B); cycles=4; break;
-        case 0x05: std::cout << " DEC B \n";  dec(reg.B); cycles=4; break;
+        case 0x02:  load(pairReg(reg.B, reg.C), reg.A); cycles=8; currentOpCode= "LD (BC) A"; break;
+        case 0x03:  inc(reg.B, reg.C); cycles=8; currentOpCode= "INC BC"; break;
+        case 0x04:  inc(reg.B); cycles=4; currentOpCode= "INC B"; break;
+        case 0x05:  dec(reg.B); cycles=4; currentOpCode= "DEC B"; break;
         case 0x06:{
-            std::cout << " LD B n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
-            load(reg.B, mem.read(pc+1));break;
+            opbytes = 2; cycles=8;
+            currentOpCode= "LD B n : " + formatHex(mem.read(pc+1));
+            load(reg.B, mem.read(pc+1));
+            break;
         }
-        case 0x07: std::cout << " RLCA \n";  rlca(); cycles=4; break;
+        case 0x07:  rlca(); cycles=4; currentOpCode= "RLCA"; break;
         case 0x08:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            load( joinByte(val1, val2), reg.SP);
-            std::cout << " LD (nn) SP " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=8; break;
+            load( joinByte(val2, val1), reg.SP); currentOpCode= "LD (nn) SP : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=8;
+            break;
         }
-        case 0x09: std::cout << " ADD HL BC \n";  add(reg.H, reg.L, reg.B, reg.C); cycles=8; break;
-        case 0x0A: std::cout << " LD A (BC) \n";  load(reg.A, pairReg(reg.B, reg.C)); cycles=8; break;
-        case 0x0B: std::cout << " DEC BC \n";  dec(reg.B, reg.C); cycles=8; break;
-        case 0x0C: std::cout << " INC C \n";  inc(reg.C); cycles=4; break;
-        case 0x0D: std::cout << " DEC C \n";  dec(reg.C); cycles=4; break;
+        case 0x09:  add(reg.H, reg.L, reg.B, reg.C); cycles=8; currentOpCode= "ADD HL BC"; break;
+        case 0x0A:  load(reg.A, pairReg(reg.B, reg.C)); cycles=8; currentOpCode= "LD A (BC)"; break;
+        case 0x0B:  dec(reg.B, reg.C); cycles=8; currentOpCode= "DEC BC"; break;
+        case 0x0C:  inc(reg.C); cycles=4; currentOpCode= "INC C"; break;
+        case 0x0D:  dec(reg.C); cycles=4; currentOpCode= "DEC C"; break;
         case 0x0E:{
-            std::cout << " LD C n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
-            load(reg.C, mem.read(pc+1));break;
+            opbytes = 2; cycles=8;
+            currentOpCode= "LD C n : " + formatHex(mem.read(pc+1));
+            load(reg.C, mem.read(pc+1));
+            break;
         }
-        case 0x0F: std::cout << " RRCA \n";  rrca(); cycles=4; break;
-        case 0x10: std::cout << " STOP | NOT IMPLEMENTED \n";  break;
+        case 0x0F:  rrca(); cycles=4; currentOpCode= "RRCA"; break;
+        case 0x10:  break;
         case 0x11:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            load(reg.D, reg.E, val1, val2);
-            std::cout << " LD DE nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=12; break;
+            load(reg.D, reg.E, val2, val1);
+            currentOpCode= "LD DE nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=12;
+            break;
         }
-        case 0x12: std::cout << " LD (DE) A \n";  load(pairReg(reg.D, reg.E), reg.A); cycles=8; break;
-        case 0x13: std::cout << " INC DE \n";  inc(reg.D, reg.E); cycles=8; break;
-        case 0x14: std::cout << " INC D \n";  inc(reg.D); cycles=4; break;
-        case 0x15: std::cout << " DEC D \n";  dec(reg.D); cycles=4; break;
+        case 0x12:  load(pairReg(reg.D, reg.E), reg.A); cycles=8; currentOpCode= "LD (DE) A"; break;
+        case 0x13:  inc(reg.D, reg.E); cycles=8; currentOpCode= "INC DE"; break;
+        case 0x14:  inc(reg.D); cycles=4; currentOpCode= "INC D"; break;
+        case 0x15:  dec(reg.D); cycles=4; currentOpCode= "DEC D"; break;
         case 0x16:{
-            std::cout << " LD D n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
-            load(reg.D, mem.read(pc+1));break;
+            opbytes = 2; cycles=8;
+            currentOpCode= "LD D n : " + formatHex(mem.read(pc+1));
+            load(reg.D, mem.read(pc+1));
+            break;
         }
-        case 0x17: std::cout << " RLA \n";  rla(); cycles=4; break;
+        case 0x17:  rla(); cycles=4; currentOpCode= "RLA"; break;
         case 0x18:{
-            int8_t val1 = mem.read(pc+1);
-            std::cout << " JR e " << HEX(val1) << "\n"; opbytes = 2; cycles=8;
-            jr(val1);break;
+            int8_t val1 = int8_t(mem.read(pc+1));
+            opbytes = 2; isJump = true; cycles=8;
+            currentOpCode= "JR e : " + formatHex(mem.read(pc+1));
+            jr(val1);		break;
         }
-        case 0x19: std::cout << " ADD HL DE \n";  add(reg.H, reg.L, reg.D, reg.E); cycles=8; break;
-        case 0x1A: std::cout << " LD A (DE) \n";  load(reg.A, pairReg(reg.D, reg.E)); cycles=8; break;
-        case 0x1B: std::cout << " DEC DE \n";  dec(reg.D, reg.E); cycles=8; break;
-        case 0x1C: std::cout << " INC E \n";  inc(reg.E); cycles=4; break;
-        case 0x1D: std::cout << " DEC E \n";  dec(reg.E); cycles=4; break;
+        case 0x19:  add(reg.H, reg.L, reg.D, reg.E); cycles=8; currentOpCode= "ADD HL DE"; break;
+        case 0x1A:  load(reg.A, pairReg(reg.D, reg.E)); cycles=8; currentOpCode= "LD A (DE)"; break;
+        case 0x1B:  dec(reg.D, reg.E); cycles=8; currentOpCode= "DEC DE"; break;
+        case 0x1C:  inc(reg.E); cycles=4; currentOpCode= "INC E"; break;
+        case 0x1D:  dec(reg.E); cycles=4; currentOpCode= "DEC E"; break;
         case 0x1E:{
-            std::cout << " LD E n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
-            load(reg.E, mem.read(pc+1));break;
+            opbytes = 2; cycles=8;
+            currentOpCode= "LD E n : " + formatHex(mem.read(pc+1));
+            load(reg.E, mem.read(pc+1));
+            break;
         }
-        case 0x1F: std::cout << " RRA \n";  rra(); cycles=4; break;
+        case 0x1F:  rra(); cycles=4; currentOpCode= "RRA"; break;
         case 0x20:{
-            int8_t val1 = mem.read(pc+1);
-            std::cout << " JR NZ e " << HEX(val1) << "\n"; opbytes = 2;
-            bool jump = jr(val1, ~FLAGZERO); if (jump) {isJump = true; cycles=12;} cycles=8;break;
+            int8_t val1 = int8_t(mem.read(pc+1));
+            opbytes = 2;
+            bool jump = jr(val1, ~FLAGZERO); if (jump) {isJump = true; cycles=12;} cycles=8;
+            currentOpCode= "JR NZ e : " + formatHex(mem.read(pc+1));
+    break;
         }
         case 0x21:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            load(reg.H, reg.L, val1, val2);
-            std::cout << " LD HL nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=12; break;
+            load(reg.H, reg.L, val2, val1);
+            currentOpCode= "LD HL nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=12;
+            break;
         }
-        case 0x22: std::cout << " LD (HL+) A \n";  load(pairReg(reg.H, reg.L), reg.A); inc(reg.A, true); cycles=8; break;
-        case 0x23: std::cout << " INC HL \n";  inc(reg.H, reg.L); cycles=8; break;
-        case 0x24: std::cout << " INC H \n";  inc(reg.H); cycles=4; break;
-        case 0x25: std::cout << " DEC H \n";  dec(reg.H); cycles=4; break;
+        case 0x22:  load(pairReg(reg.H, reg.L), reg.A); inc(reg.A, true); cycles=8; currentOpCode= "LD (HL+) A"; break;
+        case 0x23:  inc(reg.H, reg.L); cycles=8; currentOpCode= "INC HL"; break;
+        case 0x24:  inc(reg.H); cycles=4; currentOpCode= "INC H"; break;
+        case 0x25:  dec(reg.H); cycles=4; currentOpCode= "DEC H"; break;
         case 0x26:{
-            std::cout << " LD H n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
-            load(reg.H, mem.read(pc+1));break;
+            opbytes = 2; cycles=8;
+            currentOpCode= "LD H n : " + formatHex(mem.read(pc+1));
+            load(reg.H, mem.read(pc+1));
+            break;
         }
-        case 0x27: std::cout << " DAA \n";  daa(); cycles=4; break;
+        case 0x27:  daa(); cycles=4; currentOpCode= "DAA"; break;
         case 0x28:{
-            int8_t val1 = mem.read(pc+1);
-            std::cout << " JR Z e " << HEX(val1) << "\n"; opbytes = 2;
-            bool jump = jr(val1, FLAGZERO); if (jump) {isJump = true; cycles=12;} cycles=8;break;
+            int8_t val1 = int8_t(mem.read(pc+1));
+            opbytes = 2;
+            bool jump = jr(val1, FLAGZERO); if (jump) {isJump = true; cycles=12;} cycles=8;
+            currentOpCode= "JR Z e : " + formatHex(mem.read(pc+1));
+    break;
         }
-        case 0x29: std::cout << " ADD HL HL \n";  add(reg.H, reg.L, reg.H, reg.L); cycles=8; break;
-        case 0x2A: std::cout << " LD A (HL+) \n";  load(reg.A, pairReg(reg.H, reg.L)); inc(reg.A, true); cycles=8; break;
-        case 0x2B: std::cout << " DEC HL \n";  dec(reg.H, reg.L); cycles=8; break;
-        case 0x2C: std::cout << " INC L \n";  inc(reg.L); cycles=4; break;
-        case 0x2D: std::cout << " DEC L \n";  dec(reg.L); cycles=4; break;
+        case 0x29:  add(reg.H, reg.L, reg.H, reg.L); cycles=8; currentOpCode= "ADD HL HL"; break;
+        case 0x2A:  load(reg.A, pairReg(reg.H, reg.L)); inc(reg.A, true); cycles=8; currentOpCode= "LD A (HL+)"; break;
+        case 0x2B:  dec(reg.H, reg.L); cycles=8; currentOpCode= "DEC HL"; break;
+        case 0x2C:  inc(reg.L); cycles=4; currentOpCode= "INC L"; break;
+        case 0x2D:  dec(reg.L); cycles=4; currentOpCode= "DEC L"; break;
         case 0x2E:{
-            std::cout << " LD L n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
-            load(reg.L, mem.read(pc+1));break;
+            opbytes = 2; cycles=8;
+            currentOpCode= "LD L n : " + formatHex(mem.read(pc+1));
+            load(reg.L, mem.read(pc+1));
+            break;
         }
-        case 0x2F: std::cout << " CPL \n";  cpl(); cycles=4; break;
+        case 0x2F:  cpl(); cycles=4; currentOpCode= "CPL"; break;
         case 0x30:{
-            int8_t val1 = mem.read(pc+1);
-            std::cout << " JR NC e " << HEX(val1) << "\n"; opbytes = 2;
-            bool jump = jr(val1, ~FLAGCARRY); if (jump) {isJump = true; cycles=12;} cycles=8;break;
+            int8_t val1 = int8_t(mem.read(pc+1));
+            opbytes = 2;
+            bool jump = jr(val1, ~FLAGCARRY); if (jump) {isJump = true; cycles=12;} cycles=8;
+            currentOpCode= "JR NC e : " + formatHex(mem.read(pc+1));
+    break;
         }
         case 0x31:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            std::cout << " LD SP nn \n"; loadSP(val1, val2); opbytes = 3; cycles=12; break;
+            currentOpCode= "LD SP nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=12;
+            break;
         }
-        case 0x32: std::cout << " LD (HL-) A \n";  load(pairReg(reg.H, reg.L), reg.A); dec(reg.A, true); cycles=8; break;
-        case 0x33: std::cout << " INC SP \n";  incSP(); cycles=8; break;
-        case 0x34: std::cout << " INC (HL) \n";  inc(reg.A, true); cycles=12; break;
-        case 0x35: std::cout << " DEC (HL) \n";  dec(reg.A, true); cycles=12; break;
+        case 0x32:  load(pairReg(reg.H, reg.L), reg.A); dec(reg.A, true); cycles=8; currentOpCode= "LD (HL-) A"; break;
+        case 0x33:  incSP(); cycles=8; currentOpCode= "INC SP"; break;
+        case 0x34:  inc(reg.A, true); cycles=12; currentOpCode= "INC (HL)"; break;
+        case 0x35:  dec(reg.A, true); cycles=12; currentOpCode= "DEC (HL)"; break;
         case 0x36:{
             uint16_t val1 = mem.read(pc+1);
-            std::cout << " LD (HL) n " << HEX(val1) << "\n"; opbytes = 2; cycles=12;
-            load( pairReg(reg.H, reg.L ), val1);break;
+            opbytes = 2; cycles=12;
+            currentOpCode= "LD (HL) n : " + formatHex(mem.read(pc+1));
+            load( pairReg(reg.H, reg.L ), val1);		break;
         }
-        case 0x37: std::cout << " SCF \n";  scf(); cycles=4; break;
+        case 0x37:  scf(); cycles=4; currentOpCode= "SCF"; break;
         case 0x38:{
-            int8_t val1 = mem.read(pc+1);
-            std::cout << " JR C e " << HEX(val1) << "\n"; opbytes = 2;
-            bool jump = jr(val1, FLAGCARRY); if (jump) {isJump = true; cycles=12;} cycles=8;break;
+            int8_t val1 = int8_t(mem.read(pc+1));
+            opbytes = 2;
+            bool jump = jr(val1, FLAGCARRY); if (jump) {isJump = true; cycles=12;} cycles=8;
+            currentOpCode= "JR C e : " + formatHex(mem.read(pc+1));
+    break;
         }
-        case 0x39: std::cout << " ADD HL SP \n"; addSP2Reg(reg.H, reg.L); cycles=8; break;
-        case 0x3A: std::cout << " LD A (HL-) \n";  load(reg.A, pairReg(reg.H, reg.L) ); dec(reg.A, true); cycles=8; break;
-        case 0x3B: std::cout << " DEC SP \n";  decSP(); cycles=8; break;
-        case 0x3C: std::cout << " INC A \n";  inc(reg.A); cycles=4; break;
-        case 0x3D: std::cout << " DEC A \n";  dec(reg.A); cycles=4; break;
+        case 0x39:  addSP2Reg(reg.H, reg.L); cycles=8; currentOpCode= "ADD HL SP"; break;
+        case 0x3A:  load(reg.A, pairReg(reg.H, reg.L) ); dec(reg.A, true); cycles=8; currentOpCode= "LD A (HL-)"; break;
+        case 0x3B:  decSP(); cycles=8; currentOpCode= "DEC SP"; break;
+        case 0x3C:  inc(reg.A); cycles=4; currentOpCode= "INC A"; break;
+        case 0x3D:  dec(reg.A); cycles=4; currentOpCode= "DEC A"; break;
         case 0x3E:{
-            std::cout << " LD A n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
-            load(reg.A, mem.read(pc+1));break;
+            opbytes = 2; cycles=8;
+            currentOpCode= "LD A n : " + formatHex(mem.read(pc+1));
+            load(reg.A, mem.read(pc+1));
+            break;
         }
-        case 0x3F: std::cout << " CCF \n";  ccf(); cycles=4; break;
-        case 0x40: std::cout << " LD B B \n";  load(reg.B, reg.B); cycles=4; break;
-        case 0x41: std::cout << " LD B C \n";  load(reg.B, reg.C); cycles=4; break;
-        case 0x42: std::cout << " LD B D \n";  load(reg.B, reg.D); cycles=4; break;
-        case 0x43: std::cout << " LD B E \n";  load(reg.B, reg.E); cycles=4; break;
-        case 0x44: std::cout << " LD B H \n";  load(reg.B, reg.H); cycles=4; break;
-        case 0x45: std::cout << " LD B L \n";  load(reg.B, reg.L); cycles=4; break;
-        case 0x46: std::cout << " LD B (HL) \n";  load(reg.B, pairReg(reg.H, reg.L)); cycles=8; break;
-        case 0x47: std::cout << " LD B A \n";  load(reg.B, reg.A); cycles=4; break;
-        case 0x48: std::cout << " LD C B \n";  load(reg.C, reg.B); cycles=4; break;
-        case 0x49: std::cout << " LD C C \n";  load(reg.C, reg.C); cycles=4; break;
-        case 0x4A: std::cout << " LD C D \n";  load(reg.C, reg.D); cycles=4; break;
-        case 0x4B: std::cout << " LD C E \n";  load(reg.C, reg.E); cycles=4; break;
-        case 0x4C: std::cout << " LD C H \n";  load(reg.C, reg.H); cycles=4; break;
-        case 0x4D: std::cout << " LD C L \n";  load(reg.C, reg.L); cycles=4; break;
-        case 0x4E: std::cout << " LD C (HL) \n";  load(reg.C, pairReg(reg.H, reg.L)); cycles=8; break;
-        case 0x4F: std::cout << " LD C A \n";  load(reg.C, reg.A); cycles=4; break;
-        case 0x50: std::cout << " LD D B \n";  load(reg.D, reg.B); cycles=4; break;
-        case 0x51: std::cout << " LD D C \n";  load(reg.D, reg.C); cycles=4; break;
-        case 0x52: std::cout << " LD D D \n";  load(reg.D, reg.D); cycles=4; break;
-        case 0x53: std::cout << " LD D E \n";  load(reg.D, reg.E); cycles=4; break;
-        case 0x54: std::cout << " LD D H \n";  load(reg.D, reg.H); cycles=4; break;
-        case 0x55: std::cout << " LD D L \n";  load(reg.D, reg.L); cycles=4; break;
-        case 0x56: std::cout << " LD D (HL) \n";  load(reg.D, pairReg(reg.H, reg.L)); cycles=8; break;
-        case 0x57: std::cout << " LD D A \n";  load(reg.D, reg.A); cycles=4; break;
-        case 0x58: std::cout << " LD E B \n";  load(reg.E, reg.B); cycles=4; break;
-        case 0x59: std::cout << " LD E C \n";  load(reg.E, reg.C); cycles=4; break;
-        case 0x5A: std::cout << " LD E D \n";  load(reg.E, reg.D); cycles=4; break;
-        case 0x5B: std::cout << " LD E E \n";  load(reg.E, reg.E); cycles=4; break;
-        case 0x5C: std::cout << " LD E H \n";  load(reg.E, reg.H); cycles=4; break;
-        case 0x5D: std::cout << " LD E L \n";  load(reg.E, reg.L); cycles=4; break;
-        case 0x5E: std::cout << " LD E (HL) \n";  load(reg.E, pairReg(reg.H, reg.L)); cycles=8; break;
-        case 0x5F: std::cout << " LD E A \n";  load(reg.E, reg.A); cycles=4; break;
-        case 0x60: std::cout << " LD H B \n";  load(reg.H, reg.B); cycles=4; break;
-        case 0x61: std::cout << " LD H C \n";  load(reg.H, reg.C); cycles=4; break;
-        case 0x62: std::cout << " LD H D \n";  load(reg.H, reg.D); cycles=4; break;
-        case 0x63: std::cout << " LD H E \n";  load(reg.H, reg.E); cycles=4; break;
-        case 0x64: std::cout << " LD H H \n";  load(reg.H, reg.H); cycles=4; break;
-        case 0x65: std::cout << " LD H L \n";  load(reg.H, reg.L); cycles=4; break;
-        case 0x66: std::cout << " LD H (HL) \n";  load(reg.H, pairReg(reg.H, reg.L)); cycles=8; break;
-        case 0x67: std::cout << " LD H A \n";  load(reg.H, reg.A); cycles=4; break;
-        case 0x68: std::cout << " LD L B \n";  load(reg.L, reg.B); cycles=4; break;
-        case 0x69: std::cout << " LD L C \n";  load(reg.L, reg.C); cycles=4; break;
-        case 0x6A: std::cout << " LD L D \n";  load(reg.L, reg.D); cycles=4; break;
-        case 0x6B: std::cout << " LD L E \n";  load(reg.L, reg.E); cycles=4; break;
-        case 0x6C: std::cout << " LD L H \n";  load(reg.L, reg.H); cycles=4; break;
-        case 0x6D: std::cout << " LD L L \n";  load(reg.L, reg.L); cycles=4; break;
-        case 0x6E: std::cout << " LD L (HL) \n";  load(reg.L, pairReg(reg.H, reg.L)); cycles=8; break;
-        case 0x6F: std::cout << " LD L A \n";  load(reg.L, reg.A); cycles=4; break;
-        case 0x70: std::cout << " LD (HL) B \n";  load(pairReg(reg.H, reg.L), reg.B); cycles=8; break;
-        case 0x71: std::cout << " LD (HL) C \n";  load(pairReg(reg.H, reg.L), reg.C); cycles=8; break;
-        case 0x72: std::cout << " LD (HL) D \n";  load(pairReg(reg.H, reg.L), reg.D); cycles=8; break;
-        case 0x73: std::cout << " LD (HL) E \n";  load(pairReg(reg.H, reg.L), reg.E); cycles=8; break;
-        case 0x74: std::cout << " LD (HL) H \n";  load(pairReg(reg.H, reg.L), reg.H); cycles=8; break;
-        case 0x75: std::cout << " LD (HL) L \n";  load(pairReg(reg.H, reg.L), reg.L); cycles=8; break;
-        case 0x76: std::cout << " HALT \n";  halt(); break;
-        case 0x77: std::cout << " LD (HL) A \n";  load(pairReg(reg.H, reg.L), reg.A); cycles=8; break;
-        case 0x78: std::cout << " LD A B \n";  load(reg.A, reg.B); cycles=4; break;
-        case 0x79: std::cout << " LD A C \n";  load(reg.A, reg.C); cycles=4; break;
-        case 0x7A: std::cout << " LD A D \n";  load(reg.A, reg.D); cycles=4; break;
-        case 0x7B: std::cout << " LD A E \n";  load(reg.A, reg.E); cycles=4; break;
-        case 0x7C: std::cout << " LD A H \n";  load(reg.A, reg.H); cycles=4; break;
-        case 0x7D: std::cout << " LD A L \n";  load(reg.A, reg.L); cycles=4; break;
-        case 0x7E: std::cout << " LD A (HL) \n";  load(reg.A, pairReg(reg.H, reg.L)); cycles=8; break;
-        case 0x7F: std::cout << " LD A A \n";  load(reg.A, reg.A); cycles=4; break;
-        case 0x80: std::cout << " ADD B \n";  add(reg.A, reg.B); cycles=4; break;
-        case 0x81: std::cout << " ADD C \n";  add(reg.A, reg.C); cycles=4; break;
-        case 0x82: std::cout << " ADD D \n";  add(reg.A, reg.D); cycles=4; break;
-        case 0x83: std::cout << " ADD E \n";  add(reg.A, reg.E); cycles=4; break;
-        case 0x84: std::cout << " ADD H \n";  add(reg.A, reg.H); cycles=4; break;
-        case 0x85: std::cout << " ADD L \n";  add(reg.A, reg.L); cycles=4; break;
-        case 0x86: std::cout << " ADD (HL) \n";  add(reg.A, pairRegData(reg.H, reg.L)); cycles=8; break;
-        case 0x87: std::cout << " ADD A \n";  add(reg.A, reg.A); cycles=4; break;
-        case 0x88: std::cout << " ADC B \n";  adc(reg.A, reg.B); cycles=4; break;
-        case 0x89: std::cout << " ADC C \n";  adc(reg.A, reg.C); cycles=4; break;
-        case 0x8A: std::cout << " ADC D \n";  adc(reg.A, reg.D); cycles=4; break;
-        case 0x8B: std::cout << " ADC E \n";  adc(reg.A, reg.E); cycles=4; break;
-        case 0x8C: std::cout << " ADC H \n";  adc(reg.A, reg.H); cycles=4; break;
-        case 0x8D: std::cout << " ADC L \n";  adc(reg.A, reg.L); cycles=4; break;
-        case 0x8E: std::cout << " ADC (HL) \n";  adc(reg.A, pairRegData(reg.H, reg.L)); cycles=8; break;
-        case 0x8F: std::cout << " ADC A \n";  adc(reg.A, reg.A); cycles=4; break;
-        case 0x90: std::cout << " SUB B \n";  sub(reg.A, reg.B); cycles=4; break;
-        case 0x91: std::cout << " SUB C \n";  sub(reg.A, reg.C); cycles=4; break;
-        case 0x92: std::cout << " SUB D \n";  sub(reg.A, reg.D); cycles=4; break;
-        case 0x93: std::cout << " SUB E \n";  sub(reg.A, reg.E); cycles=4; break;
-        case 0x94: std::cout << " SUB H \n";  sub(reg.A, reg.H); cycles=4; break;
-        case 0x95: std::cout << " SUB L \n";  sub(reg.A, reg.L); cycles=4; break;
-        case 0x96: std::cout << " SUB (HL) \n";  sub(reg.A, pairRegData(reg.H, reg.L)); cycles=8; break;
-        case 0x97: std::cout << " SUB A \n";  sub(reg.A, reg.A); cycles=4; break;
-        case 0x98: std::cout << " SBC B \n";  sbc(reg.A, reg.B); cycles=4; break;
-        case 0x99: std::cout << " SBC C \n";  sbc(reg.A, reg.C); cycles=4; break;
-        case 0x9A: std::cout << " SBC D \n";  sbc(reg.A, reg.D); cycles=4; break;
-        case 0x9B: std::cout << " SBC E \n";  sbc(reg.A, reg.E); cycles=4; break;
-        case 0x9C: std::cout << " SBC H \n";  sbc(reg.A, reg.H); cycles=4; break;
-        case 0x9D: std::cout << " SBC L \n";  sbc(reg.A, reg.L); cycles=4; break;
-        case 0x9E: std::cout << " SBC (HL) \n";  sbc(reg.A, pairRegData(reg.H, reg.L)); cycles=8; break;
-        case 0x9F: std::cout << " SBC A \n";  sbc(reg.A, reg.A); cycles=4; break;
-        case 0xA0: std::cout << " AND B \n";  logAnd(reg.A, reg.B); cycles=4; break;
-        case 0xA1: std::cout << " AND C \n";  logAnd(reg.A, reg.C); cycles=4; break;
-        case 0xA2: std::cout << " AND D \n";  logAnd(reg.A, reg.D); cycles=4; break;
-        case 0xA3: std::cout << " AND E \n";  logAnd(reg.A, reg.E); cycles=4; break;
-        case 0xA4: std::cout << " AND H \n";  logAnd(reg.A, reg.H); cycles=4; break;
-        case 0xA5: std::cout << " AND L \n";  logAnd(reg.A, reg.L); cycles=4; break;
-        case 0xA6: std::cout << " AND (HL) \n";  logAnd(reg.A, pairRegData(reg.H, reg.L)); cycles=8; break;
-        case 0xA7: std::cout << " AND A \n";  logAnd(reg.A, reg.A); cycles=4; break;
-        case 0xA8: std::cout << " XOR B \n";  logXor(reg.A, reg.B); cycles=4; break;
-        case 0xA9: std::cout << " XOR C \n";  logXor(reg.A, reg.C); cycles=4; break;
-        case 0xAA: std::cout << " XOR D \n";  logXor(reg.A, reg.D); cycles=4; break;
-        case 0xAB: std::cout << " XOR E \n";  logXor(reg.A, reg.E); cycles=4; break;
-        case 0xAC: std::cout << " XOR H \n";  logXor(reg.A, reg.H); cycles=4; break;
-        case 0xAD: std::cout << " XOR L \n";  logXor(reg.A, reg.L); cycles=4; break;
-        case 0xAE: std::cout << " XOR (HL) \n";  logXor(reg.A, pairRegData(reg.H, reg.L)); cycles=8; break;
-        case 0xAF: std::cout << " XOR A \n";  logXor(reg.A, reg.A); cycles=4; break;
-        case 0xB0: std::cout << " OR B \n";  logOr(reg.A, reg.B); cycles=4; break;
-        case 0xB1: std::cout << " OR C \n";  logOr(reg.A, reg.C); cycles=4; break;
-        case 0xB2: std::cout << " OR D \n";  logOr(reg.A, reg.D); cycles=4; break;
-        case 0xB3: std::cout << " OR E \n";  logOr(reg.A, reg.E); cycles=4; break;
-        case 0xB4: std::cout << " OR H \n";  logOr(reg.A, reg.H); cycles=4; break;
-        case 0xB5: std::cout << " OR L \n";  logOr(reg.A, reg.L); cycles=4; break;
-        case 0xB6: std::cout << " OR (HL) \n";  logOr(reg.A, pairRegData(reg.H, reg.L)); cycles=8; break;
-        case 0xB7: std::cout << " OR A \n";  logOr(reg.A, reg.A); cycles=4; break;
-        case 0xB8: std::cout << " CP B \n";  cp(reg.A, reg.B); cycles=4; break;
-        case 0xB9: std::cout << " CP C \n";  cp(reg.A, reg.C); cycles=4; break;
-        case 0xBA: std::cout << " CP D \n";  cp(reg.A, reg.D); cycles=4; break;
-        case 0xBB: std::cout << " CP E \n";  cp(reg.A, reg.E); cycles=4; break;
-        case 0xBC: std::cout << " CP H \n";  cp(reg.A, reg.H); cycles=4; break;
-        case 0xBD: std::cout << " CP L \n";  cp(reg.A, reg.L); cycles=4; break;
-        case 0xBE: std::cout << " CP (HL) \n";  cp(reg.A, pairRegData(reg.H, reg.L)); cycles=8; break;
-        case 0xBF: std::cout << " CP A \n";  cp(reg.A, reg.A); cycles=4; break;
+        case 0x3F:  ccf(); cycles=4; currentOpCode= "CCF"; break;
+        case 0x40:  load(reg.B, reg.B); cycles=4; currentOpCode= "LD B B"; break;
+        case 0x41:  load(reg.B, reg.C); cycles=4; currentOpCode= "LD B C"; break;
+        case 0x42:  load(reg.B, reg.D); cycles=4; currentOpCode= "LD B D"; break;
+        case 0x43:  load(reg.B, reg.E); cycles=4; currentOpCode= "LD B E"; break;
+        case 0x44:  load(reg.B, reg.H); cycles=4; currentOpCode= "LD B H"; break;
+        case 0x45:  load(reg.B, reg.L); cycles=4; currentOpCode= "LD B L"; break;
+        case 0x46:  load(reg.B, pairReg(reg.H, reg.L)); cycles=8; currentOpCode= "LD B (HL)"; break;
+        case 0x47:  load(reg.B, reg.A); cycles=4; currentOpCode= "LD B A"; break;
+        case 0x48:  load(reg.C, reg.B); cycles=4; currentOpCode= "LD C B"; break;
+        case 0x49:  load(reg.C, reg.C); cycles=4; currentOpCode= "LD C C"; break;
+        case 0x4A:  load(reg.C, reg.D); cycles=4; currentOpCode= "LD C D"; break;
+        case 0x4B:  load(reg.C, reg.E); cycles=4; currentOpCode= "LD C E"; break;
+        case 0x4C:  load(reg.C, reg.H); cycles=4; currentOpCode= "LD C H"; break;
+        case 0x4D:  load(reg.C, reg.L); cycles=4; currentOpCode= "LD C L"; break;
+        case 0x4E:  load(reg.C, pairReg(reg.H, reg.L)); cycles=8; currentOpCode= "LD C (HL)"; break;
+        case 0x4F:  load(reg.C, reg.A); cycles=4; currentOpCode= "LD C A"; break;
+        case 0x50:  load(reg.D, reg.B); cycles=4; currentOpCode= "LD D B"; break;
+        case 0x51:  load(reg.D, reg.C); cycles=4; currentOpCode= "LD D C"; break;
+        case 0x52:  load(reg.D, reg.D); cycles=4; currentOpCode= "LD D D"; break;
+        case 0x53:  load(reg.D, reg.E); cycles=4; currentOpCode= "LD D E"; break;
+        case 0x54:  load(reg.D, reg.H); cycles=4; currentOpCode= "LD D H"; break;
+        case 0x55:  load(reg.D, reg.L); cycles=4; currentOpCode= "LD D L"; break;
+        case 0x56:  load(reg.D, pairReg(reg.H, reg.L)); cycles=8; currentOpCode= "LD D (HL)"; break;
+        case 0x57:  load(reg.D, reg.A); cycles=4; currentOpCode= "LD D A"; break;
+        case 0x58:  load(reg.E, reg.B); cycles=4; currentOpCode= "LD E B"; break;
+        case 0x59:  load(reg.E, reg.C); cycles=4; currentOpCode= "LD E C"; break;
+        case 0x5A:  load(reg.E, reg.D); cycles=4; currentOpCode= "LD E D"; break;
+        case 0x5B:  load(reg.E, reg.E); cycles=4; currentOpCode= "LD E E"; break;
+        case 0x5C:  load(reg.E, reg.H); cycles=4; currentOpCode= "LD E H"; break;
+        case 0x5D:  load(reg.E, reg.L); cycles=4; currentOpCode= "LD E L"; break;
+        case 0x5E:  load(reg.E, pairReg(reg.H, reg.L)); cycles=8; currentOpCode= "LD E (HL)"; break;
+        case 0x5F:  load(reg.E, reg.A); cycles=4; currentOpCode= "LD E A"; break;
+        case 0x60:  load(reg.H, reg.B); cycles=4; currentOpCode= "LD H B"; break;
+        case 0x61:  load(reg.H, reg.C); cycles=4; currentOpCode= "LD H C"; break;
+        case 0x62:  load(reg.H, reg.D); cycles=4; currentOpCode= "LD H D"; break;
+        case 0x63:  load(reg.H, reg.E); cycles=4; currentOpCode= "LD H E"; break;
+        case 0x64:  load(reg.H, reg.H); cycles=4; currentOpCode= "LD H H"; break;
+        case 0x65:  load(reg.H, reg.L); cycles=4; currentOpCode= "LD H L"; break;
+        case 0x66:  load(reg.H, pairReg(reg.H, reg.L)); cycles=8; currentOpCode= "LD H (HL)"; break;
+        case 0x67:  load(reg.H, reg.A); cycles=4; currentOpCode= "LD H A"; break;
+        case 0x68:  load(reg.L, reg.B); cycles=4; currentOpCode= "LD L B"; break;
+        case 0x69:  load(reg.L, reg.C); cycles=4; currentOpCode= "LD L C"; break;
+        case 0x6A:  load(reg.L, reg.D); cycles=4; currentOpCode= "LD L D"; break;
+        case 0x6B:  load(reg.L, reg.E); cycles=4; currentOpCode= "LD L E"; break;
+        case 0x6C:  load(reg.L, reg.H); cycles=4; currentOpCode= "LD L H"; break;
+        case 0x6D:  load(reg.L, reg.L); cycles=4; currentOpCode= "LD L L"; break;
+        case 0x6E:  load(reg.L, pairReg(reg.H, reg.L)); cycles=8; currentOpCode= "LD L (HL)"; break;
+        case 0x6F:  load(reg.L, reg.A); cycles=4; currentOpCode= "LD L A"; break;
+        case 0x70:  load(pairReg(reg.H, reg.L), reg.B); cycles=8; currentOpCode= "LD (HL) B"; break;
+        case 0x71:  load(pairReg(reg.H, reg.L), reg.C); cycles=8; currentOpCode= "LD (HL) C"; break;
+        case 0x72:  load(pairReg(reg.H, reg.L), reg.D); cycles=8; currentOpCode= "LD (HL) D"; break;
+        case 0x73:  load(pairReg(reg.H, reg.L), reg.E); cycles=8; currentOpCode= "LD (HL) E"; break;
+        case 0x74:  load(pairReg(reg.H, reg.L), reg.H); cycles=8; currentOpCode= "LD (HL) H"; break;
+        case 0x75:  load(pairReg(reg.H, reg.L), reg.L); cycles=8; currentOpCode= "LD (HL) L"; break;
+        case 0x76:  halt(); currentOpCode= "HALT"; break;
+        case 0x77:  load(pairReg(reg.H, reg.L), reg.A); cycles=8; currentOpCode= "LD (HL) A"; break;
+        case 0x78:  load(reg.A, reg.B); cycles=4; currentOpCode= "LD A B"; break;
+        case 0x79:  load(reg.A, reg.C); cycles=4; currentOpCode= "LD A C"; break;
+        case 0x7A:  load(reg.A, reg.D); cycles=4; currentOpCode= "LD A D"; break;
+        case 0x7B:  load(reg.A, reg.E); cycles=4; currentOpCode= "LD A E"; break;
+        case 0x7C:  load(reg.A, reg.H); cycles=4; currentOpCode= "LD A H"; break;
+        case 0x7D:  load(reg.A, reg.L); cycles=4; currentOpCode= "LD A L"; break;
+        case 0x7E:  load(reg.A, pairReg(reg.H, reg.L)); cycles=8; currentOpCode= "LD A (HL)"; break;
+        case 0x7F:  load(reg.A, reg.A); cycles=4; currentOpCode= "LD A A"; break;
+        case 0x80:  add(reg.A, reg.B); cycles=4; currentOpCode= "ADD B"; break;
+        case 0x81:  add(reg.A, reg.C); cycles=4; currentOpCode= "ADD C"; break;
+        case 0x82:  add(reg.A, reg.D); cycles=4; currentOpCode= "ADD D"; break;
+        case 0x83:  add(reg.A, reg.E); cycles=4; currentOpCode= "ADD E"; break;
+        case 0x84:  add(reg.A, reg.H); cycles=4; currentOpCode= "ADD H"; break;
+        case 0x85:  add(reg.A, reg.L); cycles=4; currentOpCode= "ADD L"; break;
+        case 0x86:  add(reg.A, pairRegData(reg.H, reg.L)); cycles=8; currentOpCode= "ADD (HL)"; break;
+        case 0x87:  add(reg.A, reg.A); cycles=4; currentOpCode= "ADD A"; break;
+        case 0x88:  adc(reg.A, reg.B); cycles=4; currentOpCode= "ADC B"; break;
+        case 0x89:  adc(reg.A, reg.C); cycles=4; currentOpCode= "ADC C"; break;
+        case 0x8A:  adc(reg.A, reg.D); cycles=4; currentOpCode= "ADC D"; break;
+        case 0x8B:  adc(reg.A, reg.E); cycles=4; currentOpCode= "ADC E"; break;
+        case 0x8C:  adc(reg.A, reg.H); cycles=4; currentOpCode= "ADC H"; break;
+        case 0x8D:  adc(reg.A, reg.L); cycles=4; currentOpCode= "ADC L"; break;
+        case 0x8E:  adc(reg.A, pairRegData(reg.H, reg.L)); cycles=8; currentOpCode= "ADC (HL)"; break;
+        case 0x8F:  adc(reg.A, reg.A); cycles=4; currentOpCode= "ADC A"; break;
+        case 0x90:  sub(reg.A, reg.B); cycles=4; currentOpCode= "SUB B"; break;
+        case 0x91:  sub(reg.A, reg.C); cycles=4; currentOpCode= "SUB C"; break;
+        case 0x92:  sub(reg.A, reg.D); cycles=4; currentOpCode= "SUB D"; break;
+        case 0x93:  sub(reg.A, reg.E); cycles=4; currentOpCode= "SUB E"; break;
+        case 0x94:  sub(reg.A, reg.H); cycles=4; currentOpCode= "SUB H"; break;
+        case 0x95:  sub(reg.A, reg.L); cycles=4; currentOpCode= "SUB L"; break;
+        case 0x96:  sub(reg.A, pairRegData(reg.H, reg.L)); cycles=8; currentOpCode= "SUB (HL)"; break;
+        case 0x97:  sub(reg.A, reg.A); cycles=4; currentOpCode= "SUB A"; break;
+        case 0x98:  sbc(reg.A, reg.B); cycles=4; currentOpCode= "SBC B"; break;
+        case 0x99:  sbc(reg.A, reg.C); cycles=4; currentOpCode= "SBC C"; break;
+        case 0x9A:  sbc(reg.A, reg.D); cycles=4; currentOpCode= "SBC D"; break;
+        case 0x9B:  sbc(reg.A, reg.E); cycles=4; currentOpCode= "SBC E"; break;
+        case 0x9C:  sbc(reg.A, reg.H); cycles=4; currentOpCode= "SBC H"; break;
+        case 0x9D:  sbc(reg.A, reg.L); cycles=4; currentOpCode= "SBC L"; break;
+        case 0x9E:  sbc(reg.A, pairRegData(reg.H, reg.L)); cycles=8; currentOpCode= "SBC (HL)"; break;
+        case 0x9F:  sbc(reg.A, reg.A); cycles=4; currentOpCode= "SBC A"; break;
+        case 0xA0:  logAnd(reg.A, reg.B); cycles=4; currentOpCode= "AND B"; break;
+        case 0xA1:  logAnd(reg.A, reg.C); cycles=4; currentOpCode= "AND C"; break;
+        case 0xA2:  logAnd(reg.A, reg.D); cycles=4; currentOpCode= "AND D"; break;
+        case 0xA3:  logAnd(reg.A, reg.E); cycles=4; currentOpCode= "AND E"; break;
+        case 0xA4:  logAnd(reg.A, reg.H); cycles=4; currentOpCode= "AND H"; break;
+        case 0xA5:  logAnd(reg.A, reg.L); cycles=4; currentOpCode= "AND L"; break;
+        case 0xA6:  logAnd(reg.A, pairRegData(reg.H, reg.L)); cycles=8; currentOpCode= "AND (HL)"; break;
+        case 0xA7:  logAnd(reg.A, reg.A); cycles=4; currentOpCode= "AND A"; break;
+        case 0xA8:  logXor(reg.A, reg.B); cycles=4; currentOpCode= "XOR B"; break;
+        case 0xA9:  logXor(reg.A, reg.C); cycles=4; currentOpCode= "XOR C"; break;
+        case 0xAA:  logXor(reg.A, reg.D); cycles=4; currentOpCode= "XOR D"; break;
+        case 0xAB:  logXor(reg.A, reg.E); cycles=4; currentOpCode= "XOR E"; break;
+        case 0xAC:  logXor(reg.A, reg.H); cycles=4; currentOpCode= "XOR H"; break;
+        case 0xAD:  logXor(reg.A, reg.L); cycles=4; currentOpCode= "XOR L"; break;
+        case 0xAE:  logXor(reg.A, pairRegData(reg.H, reg.L)); cycles=8;  currentOpCode= "XOR (HL)"; break;
+        case 0xAF:  logXor(reg.A, reg.A); cycles=4; currentOpCode= "XOR A"; break;
+        case 0xB0:  logOr(reg.A, reg.B); cycles=4; currentOpCode= "OR B"; break;
+        case 0xB1:  logOr(reg.A, reg.C); cycles=4; currentOpCode= "OR C"; break;
+        case 0xB2:  logOr(reg.A, reg.D); cycles=4; currentOpCode= "OR D"; break;
+        case 0xB3:  logOr(reg.A, reg.E); cycles=4; currentOpCode= "OR E"; break;
+        case 0xB4:  logOr(reg.A, reg.H); cycles=4; currentOpCode= "OR H"; break;
+        case 0xB5:  logOr(reg.A, reg.L); cycles=4; currentOpCode= "OR L"; break;
+        case 0xB6:  logOr(reg.A, pairRegData(reg.H, reg.L)); cycles=8; currentOpCode= "OR (HL)"; break;
+        case 0xB7:  logOr(reg.A, reg.A); cycles=4; currentOpCode= "OR A"; break;
+        case 0xB8:  cp(reg.A, reg.B); cycles=4; currentOpCode= "CP B"; break;
+        case 0xB9:  cp(reg.A, reg.C); cycles=4; currentOpCode= "CP C"; break;
+        case 0xBA:  cp(reg.A, reg.D); cycles=4; currentOpCode= "CP D"; break;
+        case 0xBB:  cp(reg.A, reg.E); cycles=4; currentOpCode= "CP E"; break;
+        case 0xBC:  cp(reg.A, reg.H); cycles=4; currentOpCode= "CP H"; break;
+        case 0xBD:  cp(reg.A, reg.L); cycles=4; currentOpCode= "CP L"; break;
+        case 0xBE:  cp(reg.A, pairRegData(reg.H, reg.L)); cycles=8; currentOpCode= "CP (HL)"; break;
+        case 0xBF:  cp(reg.A, reg.A); cycles=4; currentOpCode= "CP A"; break;
         case 0xC0:{
-            bool jump = ret( ~FLAGZERO);
-            std::cout << " RET NZ \n"; if (jump) {isJump = true; cycles=20;} cycles=8; break;
+            bool jump = ret( ~FLAGZERO); currentOpCode= "RET NZ";
+            debugOpCode << " RET NZ \n"; if (jump) {isJump = true; cycles=20;} cycles=8; break;
         }
-        case 0xC1: std::cout << " POP BC \n";  pop(reg.B, reg.C); cycles=12; break;
+        case 0xC1:  pop(reg.B, reg.C); cycles=12; currentOpCode= "POP BC"; break;
         case 0xC2:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            bool jump = jp( joinByte(val1,val2), ~FLAGZERO);
-            std::cout << " JP NZ nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=12; if (jump) {isJump = true; cycles=16;} break;
+            bool jump = jp( joinByte(val2,val1), ~FLAGZERO);
+            currentOpCode= "JP NZ nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=12; if (jump) {isJump = true; cycles=16;}
+            break;
         }
         case 0xC3:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            jp( joinByte(val1,val2) );
-            std::cout << " JP nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=16; isJump = true ; break;
+            jp( joinByte(val2,val1) );
+            currentOpCode= "JP nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=16; isJump = true ;
+            break;
         }
         case 0xC4:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            bool jump = call(val1, val2, ~FLAGZERO);
-            std::cout << " CALL NZ nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; if (jump) {isJump = true; cycles=24;} cycles=12; break;
+            bool jump = call(val2, val1, ~FLAGZERO);
+            currentOpCode= "CALL NZ nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; if (jump) {isJump = true; cycles=24;} cycles=12;
+            break;
         }
-        case 0xC5: std::cout << " PUSH BC \n";  push(reg.B, reg.C); cycles=16; break;
+        case 0xC5:  push(reg.B, reg.C); cycles=16; currentOpCode= "PUSH BC"; break;
         case 0xC6:{
-            std::cout << " ADD n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
+            opbytes = 2; cycles=8;
+            currentOpCode= "ADD n : " + formatHex(mem.read(pc+1));
             add(reg.A, mem.read(pc+1));break;
         }
-        case 0xC7: std::cout << " RST 0x00 \n";  rst(0x00); cycles=16; break;
+        case 0xC7:  rst(0x00); cycles=16; currentOpCode= "RST 0x00"; break;
         case 0xC8:{
-            bool jump = ret( FLAGZERO);
-            std::cout << " RET Z \n"; if (jump) {isJump = true; cycles=20;} cycles=8; break;
+            bool jump = ret( FLAGZERO); currentOpCode= "RET Z";
+            debugOpCode << " RET Z \n"; if (jump) {isJump = true; cycles=20;} cycles=8; break;
         }
-        case 0xC9: std::cout << " RET \n";  ret(); isJump = true; cycles=16; break;
+        case 0xC9:  ret(); isJump = true; cycles=16; currentOpCode= "RET"; break;
         case 0xCA:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            bool jump = jp( joinByte(val1,val2), FLAGZERO);
-            std::cout << " JP Z nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=12; if (jump) {isJump = true; cycles=16;} break;
+            bool jump = jp( joinByte(val2,val1), FLAGZERO);
+            currentOpCode= "JP Z nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=12; if (jump) {isJump = true; cycles=16;}
+            break;
         }
-        case 0xCB: std::cout << " CB op \n";  decodePreByte(mem.read(pc+1)); opbytes = 2; break;
+        case 0xCB:  decodePreByte(mem.read(pc+1)); opbytes = 2; break;
         case 0xCC:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            bool jump = call(val1, val2, FLAGZERO);
-            std::cout << " CALL Z nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; if (jump) {isJump = true; cycles=24;} cycles=12; break;
+            bool jump = call(val2, val1, FLAGZERO);
+            currentOpCode= "CALL Z nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; if (jump) {isJump = true; cycles=24;} cycles=12;
+            break;
         }
         case 0xCD:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            call(val1, val2);
-            std::cout << " CALL nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=24; break;
+            call(val2, val1);
+            currentOpCode= "CALL nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; isJump = true; cycles=24;
+            break;
         }
         case 0xCE:{
-            std::cout << " ADC n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
+            opbytes = 2; cycles=8;
+            currentOpCode= "ADC n : " + formatHex(mem.read(pc+1));
             adc(reg.A, mem.read(pc+1));break;
         }
-        case 0xCF: std::cout << " RST 0x08 \n";  rst(0x08); cycles=16; break;
+        case 0xCF:  rst(0x08); cycles=16; currentOpCode= "RST 0x08"; break;
         case 0xD0:{
-            bool jump = ret( ~FLAGCARRY);
-            std::cout << " RET NC \n"; if (jump) {isJump = true; cycles=20;} cycles=8; break;
+            bool jump = ret( ~FLAGCARRY); currentOpCode= "RET NC";
+            debugOpCode << " RET NC \n"; if (jump) {isJump = true; cycles=20;} cycles=8; break;
         }
-        case 0xD1: std::cout << " POP DE \n";  pop(reg.D, reg.E); cycles=12; break;
+        case 0xD1:  pop(reg.D, reg.E); cycles=12; currentOpCode= "POP DE"; break;
         case 0xD2:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            bool jump = jp( joinByte(val1,val2), ~FLAGCARRY);
-            std::cout << " JP NC nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=12; if (jump) {isJump = true; cycles=16;} break;
+            bool jump = jp( joinByte(val2,val1), ~FLAGCARRY);
+            currentOpCode= "JP NC nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=12; if (jump) {isJump = true; cycles=16;}
+            break;
         }
         case 0xD4:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            bool jump = call(val1, val2, ~FLAGCARRY);
-            std::cout << " CALL NC nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; if (jump) {isJump = true; cycles=24;} cycles=12; break;
+            bool jump = call(val2, val1, ~FLAGCARRY);
+            currentOpCode= "CALL NC nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; if (jump) {isJump = true; cycles=24;} cycles=12;
+            break;
         }
-        case 0xD5: std::cout << " PUSH DE \n";  push(reg.D, reg.E); cycles=16; break;
+        case 0xD5:  push(reg.D, reg.E); cycles=16; currentOpCode= "PUSH DE"; break;
         case 0xD6:{
-            std::cout << " SUB n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
+            opbytes = 2; cycles=8;
+            currentOpCode= "SUB n : " + formatHex(mem.read(pc+1));
             sub(reg.A, mem.read(pc+1));break;
         }
-        case 0xD7: std::cout << " RST 0x10 \n";  rst(0x10); cycles=16; break;
+        case 0xD7:  rst(0x10); cycles=16; currentOpCode= "RST 0x10"; break;
         case 0xD8:{
-            bool jump = ret( FLAGCARRY);
-            std::cout << " RET C \n"; if (jump) {isJump = true; cycles=20;} cycles=8; break;
+            bool jump = ret( FLAGCARRY); currentOpCode= "RET C";
+            debugOpCode << " RET C \n"; if (jump) {isJump = true; cycles=20;} cycles=8; break;
         }
-        case 0xD9: std::cout << " RETI \n";  reti(); cycles=16; break;
+        case 0xD9:  reti(); cycles=16; currentOpCode= "RETI"; break;
         case 0xDA:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            bool jump = jp( joinByte(val1,val2), FLAGCARRY);
-            std::cout << " JP C nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=12; if (jump) {isJump = true; cycles=16;} break;
+            bool jump = jp( joinByte(val2,val1), FLAGCARRY);
+            currentOpCode= "JP C nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=12; if (jump) {isJump = true; cycles=16;}
+            break;
         }
         case 0xDC:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            bool jump = call(val1, val2, FLAGCARRY);
-            std::cout << " CALL C nn " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; if (jump) {isJump = true; cycles=24;} cycles=12; break;
+            bool jump = call(val2, val1, FLAGCARRY);
+            currentOpCode= "CALL C nn : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; if (jump) {isJump = true; cycles=24;} cycles=12;
+            break;
         }
         case 0xDE:{
-            std::cout << " SBC n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
+            opbytes = 2; cycles=8;
+            currentOpCode= "SBC n : " + formatHex(mem.read(pc+1));
             sbc(reg.A, mem.read(pc+1));break;
         }
-        case 0xDF: std::cout << " RST 0x18 \n";  rst(0x18); cycles=16; break;
+        case 0xDF:  rst(0x18); cycles=16; currentOpCode= "RST 0x18"; break;
         case 0xE0:{
-            std::cout << " LDH (n) A " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=12;
-             ldh_E0(mem.read(pc+1));break;
+            opbytes = 2; cycles=12;
+            currentOpCode= "LDH (n) A : " + formatHex(mem.read(pc+1));
+             ldh_E0(mem.read(pc+1));
+            break;
         }
-        case 0xE1: std::cout << " POP HL \n";  pop(reg.H, reg.L); cycles=12; break;
-        case 0xE2: std::cout << " LD (C) A \n";  load( joinByte(0x00, reg.C), reg.A ); cycles=8; break;
-        case 0xE5: std::cout << " PUSH HL \n";  push(reg.H, reg.L); cycles=16; break;
+        case 0xE1:  pop(reg.H, reg.L); cycles=12; currentOpCode= "POP HL"; break;
+        case 0xE2:  load( joinByte(0x00, reg.C), reg.A ); cycles=8; currentOpCode= "LD (C) A"; break;
+        case 0xE5:  push(reg.H, reg.L); cycles=16; currentOpCode= "PUSH HL"; break;
         case 0xE6:{
-            std::cout << " AND n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
+            opbytes = 2; cycles=8;
+            currentOpCode= "AND n : " + formatHex(mem.read(pc+1));
             logAnd(reg.A, mem.read(pc+1));break;
         }
-        case 0xE7: std::cout << " RST 0x20 \n";  rst(0x20); cycles=16; break;
+        case 0xE7:  rst(0x20); cycles=16; currentOpCode= "RST 0x20"; break;
         case 0xE8:{
-            int8_t val1 = mem.read(pc+1);
-            std::cout << " ADD SP e " << HEX(val1) << "\n"; opbytes = 2; cycles=16;
-             addByte2SP(val1);break;
+            int8_t val1 = int8_t(mem.read(pc+1));
+            opbytes = 2; cycles=16;
+            currentOpCode= "ADD SP e : " + formatHex(mem.read(pc+1));
+             addByte2SP(val1);		break;
         }
-        case 0xE9: std::cout << " JP HL \n";  jp( pairReg(reg.H, reg.L) ); cycles=4; break;
+        case 0xE9:  jp( pairReg(reg.H, reg.L) ); cycles=4; currentOpCode= "JP HL"; break;
         case 0xEA:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            load( joinByte(val1, val2), reg.A);
-            std::cout << " LD (nn) A " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=8; break;
+            load( joinByte(val2, val1), reg.A); currentOpCode= "LD (nn) A : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=8;
+            break;
         }
         case 0xEE:{
-            std::cout << " XOR n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
+            opbytes = 2; cycles=8;
+            currentOpCode= "XOR n : " + formatHex(mem.read(pc+1));
             logXor(reg.A, mem.read(pc+1));break;
         }
-        case 0xEF: std::cout << " RST 0x28 \n";  rst(0x28); cycles=16; break;
+        case 0xEF:  rst(0x28); cycles=16; currentOpCode= "RST 0x28"; break;
         case 0xF0:{
-            std::cout << " LDH A (n) " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=12;
-             ldh_F0(mem.read(pc+1));break;
+            opbytes = 2; cycles=12;
+            currentOpCode= "LDH A (n) : " + formatHex(mem.read(pc+1));
+             ldh_F0(mem.read(pc+1));
+            break;
         }
-        case 0xF1: std::cout << " POP AF \n";  pop(reg.A, reg.F); cycles=12; break;
-        case 0xF2: std::cout << " LD A (C) \n";  load( reg.A, mem.read(joinByte(0x00, reg.C)) ); cycles=8; break;
-        case 0xF3: std::cout << " DI \n";  di(); cycles=4; break;
-        case 0xF5: std::cout << " PUSH AF \n";  push(reg.A, reg.F); cycles=16; break;
+        case 0xF1:  pop(reg.A, reg.F); cycles=12; currentOpCode= "POP AF"; break;
+        case 0xF2:  load( reg.A, mem.read(joinByte(0x00, reg.C)) ); cycles=8; currentOpCode= "LD A (C)"; break;
+        case 0xF3:  di(); cycles=4; currentOpCode= "DI"; break;
+        case 0xF5:  push(reg.A, reg.F); cycles=16; currentOpCode= "PUSH AF"; break;
         case 0xF6:{
-            std::cout << " OR n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
+            opbytes = 2; cycles=8;
+            currentOpCode= "OR n : " + formatHex(mem.read(pc+1));
             logOr(reg.A, mem.read(pc+1));break;
         }
-        case 0xF7: std::cout << " RST 0x30 \n";  rst(0x30); cycles=16; break;
+        case 0xF7:  rst(0x30); cycles=16; currentOpCode= "RST 0x30"; break;
         case 0xF8:{
-            std::cout << " LD HL SP+e " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=12;
-            loadSP2Reg( reg.H, reg.L); addByte2SP(mem.read(pc+1)); break;
+            opbytes = 2; cycles=12;
+            currentOpCode= "LD HL SP+e : " + formatHex(mem.read(pc+1));
+            loadSP2Reg( reg.H, reg.L); addByte2SP(int8_t(mem.read(pc+1)));
+            break;
         }
-        case 0xF9: std::cout << " LD SP HL \n";  loadSP( reg.H, reg.L); cycles=8; break;
+        case 0xF9:  loadSP( reg.H, reg.L); cycles=8; currentOpCode= "LD SP HL"; break;
         case 0xFA:{
             uint8_t val1 = mem.read(pc+1); uint8_t val2 = mem.read(pc+2);
-            load(reg.A, joinByte(val1,val2) );
-            std::cout << " LD A (nn) " << HEX(val1) << ' ' << HEX(val2) << "\n"; opbytes = 3; cycles=8; break;
+            load(reg.A, joinByte(val2,val1) ); currentOpCode= "LD A (nn) : " + formatHex(val2) + formatHex(val1);
+            opbytes = 3; cycles=8;
+            break;
         }
-        case 0xFB: std::cout << " EI \n";  ei(); cycles=4; break;
+        case 0xFB:  ei(); cycles=4; currentOpCode= "EI"; break;
         case 0xFE:{
-            std::cout << " CP n " << HEX(mem.read(pc+1)) << "\n"; opbytes = 2; cycles=8;
+            opbytes = 2; cycles=8;
+            currentOpCode= "CP n : " + formatHex(mem.read(pc+1));
             cp(reg.A, mem.read(pc+1));break;
         }
-        case 0xFF: std::cout << " RST 0x38 \n";  rst(0x38); cycles=16; break;
-        default: std::cout << "***Instruction not recognized*** " << HEX(code) << "\n"; break;
+        case 0xFF:  rst(0x38); cycles=16; currentOpCode= "RST 0x38"; break;
+        default: debugOpCode << "***Instruction not recognized*** " << HEXPRINT(code) << "\n"; break;
+    }
+
+    if (printOpCode){
+        debugOpCode << currentOpCode;
     }
 
     if (!isJump){
         pc = pc + opbytes;
     }
-    //isJump = false;
-
-    //save instructions used to file
-    /*
-    std::ofstream myfile ("debug.txt", std::ios_base::app);
-      if (myfile.is_open())
-      {
-        myfile << HEX(code) << " \n";
-        myfile.close();
-      }
-      */
-
 }
 
 
 void CPU::decodePreByte(uint8_t bitCode){
 
+    QDebug debugOpCode = qDebug().noquote();
+
     //parse cb prefixed opcode
     switch (bitCode) {
-        case 0x00: std::cout << " RLC B \n";  rlc(reg.B); cycles=8; break;
-        case 0x01: std::cout << " RLC C \n";  rlc(reg.C); cycles=8; break;
-        case 0x02: std::cout << " RLC D \n";  rlc(reg.D); cycles=8; break;
-        case 0x03: std::cout << " RLC E \n";  rlc(reg.E); cycles=8; break;
-        case 0x04: std::cout << " RLC H \n";  rlc(reg.H); cycles=8; break;
-        case 0x05: std::cout << " RLC L \n";  rlc(reg.L); cycles=8; break;
-        case 0x06: std::cout << " RLC (HL) \n";  rlc(reg.A, true); cycles=16; break;
-        case 0x07: std::cout << " RLC A \n";  rlc(reg.A); cycles=8; break;
-        case 0x08: std::cout << " RRC B \n";  rrc(reg.B); cycles=8; break;
-        case 0x09: std::cout << " RRC C \n";  rrc(reg.C); cycles=8; break;
-        case 0x0A: std::cout << " RRC D \n";  rrc(reg.D); cycles=8; break;
-        case 0x0B: std::cout << " RRC E \n";  rrc(reg.E); cycles=8; break;
-        case 0x0C: std::cout << " RRC H \n";  rrc(reg.H); cycles=8; break;
-        case 0x0D: std::cout << " RRC L \n";  rrc(reg.L); cycles=8; break;
-        case 0x0E: std::cout << " RRC (HL) \n";  rrc(reg.A, true); cycles=16; break;
-        case 0x0F: std::cout << " RRC A \n";  rrc(reg.A); cycles=8; break;
-        case 0x10: std::cout << " RL B \n";  rl(reg.B); cycles=8; break;
-        case 0x11: std::cout << " RL C \n";  rl(reg.C); cycles=8; break;
-        case 0x12: std::cout << " RL D \n";  rl(reg.D); cycles=8; break;
-        case 0x13: std::cout << " RL E \n";  rl(reg.E); cycles=8; break;
-        case 0x14: std::cout << " RL H \n";  rl(reg.H); cycles=8; break;
-        case 0x15: std::cout << " RL L \n";  rl(reg.L); cycles=8; break;
-        case 0x16: std::cout << " RL (HL) \n";  rl(reg.A, true); cycles=16; break;
-        case 0x17: std::cout << " RL A \n";  rl(reg.A); cycles=8; break;
-        case 0x18: std::cout << " RR B \n";  rr(reg.B); cycles=8; break;
-        case 0x19: std::cout << " RR C \n";  rr(reg.C); cycles=8; break;
-        case 0x1A: std::cout << " RR D \n";  rr(reg.D); cycles=8; break;
-        case 0x1B: std::cout << " RR E \n";  rr(reg.E); cycles=8; break;
-        case 0x1C: std::cout << " RR H \n";  rr(reg.H); cycles=8; break;
-        case 0x1D: std::cout << " RR L \n";  rr(reg.L); cycles=8; break;
-        case 0x1E: std::cout << " RR (HL) \n";  rr(reg.A, true); cycles=16; break;
-        case 0x1F: std::cout << " RR A \n";  rr(reg.A); cycles=8; break;
-        case 0x20: std::cout << " SLA B \n";  sla(reg.B); cycles=8; break;
-        case 0x21: std::cout << " SLA C \n";  sla(reg.C); cycles=8; break;
-        case 0x22: std::cout << " SLA D \n";  sla(reg.D); cycles=8; break;
-        case 0x23: std::cout << " SLA E \n";  sla(reg.E); cycles=8; break;
-        case 0x24: std::cout << " SLA H \n";  sla(reg.H); cycles=8; break;
-        case 0x25: std::cout << " SLA L \n";  sla(reg.L); cycles=8; break;
-        case 0x26: std::cout << " SLA (HL) \n";  sla(reg.A, true); cycles=16; break;
-        case 0x27: std::cout << " SLA A \n";  sla(reg.A); cycles=8; break;
-        case 0x28: std::cout << " SRA B \n";  sra(reg.B); cycles=8; break;
-        case 0x29: std::cout << " SRA C \n";  sra(reg.C); cycles=8; break;
-        case 0x2A: std::cout << " SRA D \n";  sra(reg.D); cycles=8; break;
-        case 0x2B: std::cout << " SRA E \n";  sra(reg.E); cycles=8; break;
-        case 0x2C: std::cout << " SRA H \n";  sra(reg.H); cycles=8; break;
-        case 0x2D: std::cout << " SRA L \n";  sra(reg.L); cycles=8; break;
-        case 0x2E: std::cout << " SRA (HL) \n";  sra(reg.A, true); cycles=16; break;
-        case 0x2F: std::cout << " SRA A \n";  sra(reg.A); cycles=8; break;
-        case 0x30: std::cout << " SWAP B \n";  swap(reg.B); cycles=8; break;
-        case 0x31: std::cout << " SWAP C \n";  swap(reg.C); cycles=8; break;
-        case 0x32: std::cout << " SWAP D \n";  swap(reg.D); cycles=8; break;
-        case 0x33: std::cout << " SWAP E \n";  swap(reg.E); cycles=8; break;
-        case 0x34: std::cout << " SWAP H \n";  swap(reg.H); cycles=8; break;
-        case 0x35: std::cout << " SWAP L \n";  swap(reg.L); cycles=8; break;
-        case 0x36: std::cout << " SWAP (HL) \n";  swap(reg.A, true); cycles=16; break;
-        case 0x37: std::cout << " SWAP A \n";  swap(reg.A); cycles=8; break;
-        case 0x38: std::cout << " SRL B \n";  srl(reg.B); cycles=8; break;
-        case 0x39: std::cout << " SRL C \n";  srl(reg.C); cycles=8; break;
-        case 0x3A: std::cout << " SRL D \n";  srl(reg.D); cycles=8; break;
-        case 0x3B: std::cout << " SRL E \n";  srl(reg.E); cycles=8; break;
-        case 0x3C: std::cout << " SRL H \n";  srl(reg.H); cycles=8; break;
-        case 0x3D: std::cout << " SRL L \n";  srl(reg.L); cycles=8; break;
-        case 0x3E: std::cout << " SRL (HL) \n";  srl(reg.A, true); cycles=16; break;
-        case 0x3F: std::cout << " SRL A \n";  srl(reg.A); cycles=8; break;
-        case 0x40: std::cout << " BIT 0 B \n";  bit(BITZERO, reg.B); cycles=8; break;
-        case 0x41: std::cout << " BIT 0 C \n";  bit(BITZERO, reg.C); cycles=8; break;
-        case 0x42: std::cout << " BIT 0 D \n";  bit(BITZERO, reg.D); cycles=8; break;
-        case 0x43: std::cout << " BIT 0 E \n";  bit(BITZERO, reg.E); cycles=8; break;
-        case 0x44: std::cout << " BIT 0 H \n";  bit(BITZERO, reg.H); cycles=8; break;
-        case 0x45: std::cout << " BIT 0 L \n";  bit(BITZERO, reg.L); cycles=8; break;
-        case 0x46: std::cout << " BIT 0 (HL) \n";  bit(BITZERO, reg.A, true); cycles=12; break;
-        case 0x47: std::cout << " BIT 0 A \n";  bit(BITZERO, reg.A); cycles=8; break;
-        case 0x48: std::cout << " BIT 1 B \n";  bit(BITONE, reg.B); cycles=8; break;
-        case 0x49: std::cout << " BIT 1 C \n";  bit(BITONE, reg.C); cycles=8; break;
-        case 0x4A: std::cout << " BIT 1 D \n";  bit(BITONE, reg.D); cycles=8; break;
-        case 0x4B: std::cout << " BIT 1 E \n";  bit(BITONE, reg.E); cycles=8; break;
-        case 0x4C: std::cout << " BIT 1 H \n";  bit(BITONE, reg.H); cycles=8; break;
-        case 0x4D: std::cout << " BIT 1 L \n";  bit(BITONE, reg.L); cycles=8; break;
-        case 0x4E: std::cout << " BIT 1 (HL) \n";  bit(BITONE, reg.A, true); cycles=12; break;
-        case 0x4F: std::cout << " BIT 1 A \n";  bit(BITONE, reg.A); cycles=8; break;
-        case 0x50: std::cout << " BIT 2 B \n";  bit(BITTWO, reg.B); cycles=8; break;
-        case 0x51: std::cout << " BIT 2 C \n";  bit(BITTWO, reg.C); cycles=8; break;
-        case 0x52: std::cout << " BIT 2 D \n";  bit(BITTWO, reg.D); cycles=8; break;
-        case 0x53: std::cout << " BIT 2 E \n";  bit(BITTWO, reg.E); cycles=8; break;
-        case 0x54: std::cout << " BIT 2 H \n";  bit(BITTWO, reg.H); cycles=8; break;
-        case 0x55: std::cout << " BIT 2 L \n";  bit(BITTWO, reg.L); cycles=8; break;
-        case 0x56: std::cout << " BIT 2 (HL) \n";  bit(BITTWO, reg.A, true); cycles=12; break;
-        case 0x57: std::cout << " BIT 2 A \n";  bit(BITTWO, reg.A); cycles=8; break;
-        case 0x58: std::cout << " BIT 3 B \n";  bit(BITTHREE, reg.B); cycles=8; break;
-        case 0x59: std::cout << " BIT 3 C \n";  bit(BITTHREE, reg.C); cycles=8; break;
-        case 0x5A: std::cout << " BIT 3 D \n";  bit(BITTHREE, reg.D); cycles=8; break;
-        case 0x5B: std::cout << " BIT 3 E \n";  bit(BITTHREE, reg.E); cycles=8; break;
-        case 0x5C: std::cout << " BIT 3 H \n";  bit(BITTHREE, reg.H); cycles=8; break;
-        case 0x5D: std::cout << " BIT 3 L \n";  bit(BITTHREE, reg.L); cycles=8; break;
-        case 0x5E: std::cout << " BIT 3 (HL) \n";  bit(BITTHREE, reg.A, true); cycles=12; break;
-        case 0x5F: std::cout << " BIT 3 A \n";  bit(BITTHREE, reg.A); cycles=8; break;
-        case 0x60: std::cout << " BIT 4 B \n";  bit(BITFOUR, reg.B); cycles=8; break;
-        case 0x61: std::cout << " BIT 4 C \n";  bit(BITFOUR, reg.C); cycles=8; break;
-        case 0x62: std::cout << " BIT 4 D \n";  bit(BITFOUR, reg.D); cycles=8; break;
-        case 0x63: std::cout << " BIT 4 E \n";  bit(BITFOUR, reg.E); cycles=8; break;
-        case 0x64: std::cout << " BIT 4 H \n";  bit(BITFOUR, reg.H); cycles=8; break;
-        case 0x65: std::cout << " BIT 4 L \n";  bit(BITFOUR, reg.L); cycles=8; break;
-        case 0x66: std::cout << " BIT 4 (HL) \n";  bit(BITFOUR, reg.A, true); cycles=12; break;
-        case 0x67: std::cout << " BIT 4 A \n";  bit(BITFOUR, reg.A); cycles=8; break;
-        case 0x68: std::cout << " BIT 5 B \n";  bit(BITFIVE, reg.B); cycles=8; break;
-        case 0x69: std::cout << " BIT 5 C \n";  bit(BITFIVE, reg.C); cycles=8; break;
-        case 0x6A: std::cout << " BIT 5 D \n";  bit(BITFIVE, reg.D); cycles=8; break;
-        case 0x6B: std::cout << " BIT 5 E \n";  bit(BITFIVE, reg.E); cycles=8; break;
-        case 0x6C: std::cout << " BIT 5 H \n";  bit(BITFIVE, reg.H); cycles=8; break;
-        case 0x6D: std::cout << " BIT 5 L \n";  bit(BITFIVE, reg.L); cycles=8; break;
-        case 0x6E: std::cout << " BIT 5 (HL) \n";  bit(BITFIVE, reg.A, true); cycles=12; break;
-        case 0x6F: std::cout << " BIT 5 A \n";  bit(BITFIVE, reg.A); cycles=8; break;
-        case 0x70: std::cout << " BIT 6 B \n";  bit(BITSIX, reg.B); cycles=8; break;
-        case 0x71: std::cout << " BIT 6 C \n";  bit(BITSIX, reg.C); cycles=8; break;
-        case 0x72: std::cout << " BIT 6 D \n";  bit(BITSIX, reg.D); cycles=8; break;
-        case 0x73: std::cout << " BIT 6 E \n";  bit(BITSIX, reg.E); cycles=8; break;
-        case 0x74: std::cout << " BIT 6 H \n";  bit(BITSIX, reg.H); cycles=8; break;
-        case 0x75: std::cout << " BIT 6 L \n";  bit(BITSIX, reg.L); cycles=8; break;
-        case 0x76: std::cout << " BIT 6 (HL) \n";  bit(BITSIX, reg.A, true); cycles=12; break;
-        case 0x77: std::cout << " BIT 6 A \n";  bit(BITSIX, reg.A); cycles=8; break;
-        case 0x78: std::cout << " BIT 7 B \n";  bit(BITSEVEN, reg.B); cycles=8; break;
-        case 0x79: std::cout << " BIT 7 C \n";  bit(BITSEVEN, reg.C); cycles=8; break;
-        case 0x7A: std::cout << " BIT 7 D \n";  bit(BITSEVEN, reg.D); cycles=8; break;
-        case 0x7B: std::cout << " BIT 7 E \n";  bit(BITSEVEN, reg.E); cycles=8; break;
-        case 0x7C: std::cout << " BIT 7 H \n";  bit(BITSEVEN, reg.H); cycles=8; break;
-        case 0x7D: std::cout << " BIT 7 L \n";  bit(BITSEVEN, reg.L); cycles=8; break;
-        case 0x7E: std::cout << " BIT 7 (HL) \n";  bit(BITSEVEN, reg.A, true); cycles=12; break;
-        case 0x7F: std::cout << " BIT 7 A \n";  bit(BITSEVEN, reg.A); cycles=8; break;
-        case 0x80: std::cout << " RES 0 B \n";  res(BITZERO, reg.B); cycles=8; break;
-        case 0x81: std::cout << " RES 0 C \n";  res(BITZERO, reg.C); cycles=8; break;
-        case 0x82: std::cout << " RES 0 D \n";  res(BITZERO, reg.D); cycles=8; break;
-        case 0x83: std::cout << " RES 0 E \n";  res(BITZERO, reg.E); cycles=8; break;
-        case 0x84: std::cout << " RES 0 H \n";  res(BITZERO, reg.H); cycles=8; break;
-        case 0x85: std::cout << " RES 0 L \n";  res(BITZERO, reg.L); cycles=8; break;
-        case 0x86: std::cout << " RES 0 (HL) \n";  res(BITZERO, reg.A, true); cycles=16; break;
-        case 0x87: std::cout << " RES 0 A \n";  res(BITZERO, reg.A); cycles=8; break;
-        case 0x88: std::cout << " RES 1 B \n";  res(BITONE, reg.B); cycles=8; break;
-        case 0x89: std::cout << " RES 1 C \n";  res(BITONE, reg.C); cycles=8; break;
-        case 0x8A: std::cout << " RES 1 D \n";  res(BITONE, reg.D); cycles=8; break;
-        case 0x8B: std::cout << " RES 1 E \n";  res(BITONE, reg.E); cycles=8; break;
-        case 0x8C: std::cout << " RES 1 H \n";  res(BITONE, reg.H); cycles=8; break;
-        case 0x8D: std::cout << " RES 1 L \n";  res(BITONE, reg.L); cycles=8; break;
-        case 0x8E: std::cout << " RES 1 (HL) \n";  res(BITONE, reg.A, true); cycles=16; break;
-        case 0x8F: std::cout << " RES 1 A \n";  res(BITONE, reg.A); cycles=8; break;
-        case 0x90: std::cout << " RES 2 B \n";  res(BITTWO, reg.B); cycles=8; break;
-        case 0x91: std::cout << " RES 2 C \n";  res(BITTWO, reg.C); cycles=8; break;
-        case 0x92: std::cout << " RES 2 D \n";  res(BITTWO, reg.D); cycles=8; break;
-        case 0x93: std::cout << " RES 2 E \n";  res(BITTWO, reg.E); cycles=8; break;
-        case 0x94: std::cout << " RES 2 H \n";  res(BITTWO, reg.H); cycles=8; break;
-        case 0x95: std::cout << " RES 2 L \n";  res(BITTWO, reg.L); cycles=8; break;
-        case 0x96: std::cout << " RES 2 (HL) \n";  res(BITTWO, reg.A, true); cycles=16; break;
-        case 0x97: std::cout << " RES 2 A \n";  res(BITTWO, reg.A); cycles=8; break;
-        case 0x98: std::cout << " RES 3 B \n";  res(BITTHREE, reg.B); cycles=8; break;
-        case 0x99: std::cout << " RES 3 C \n";  res(BITTHREE, reg.C); cycles=8; break;
-        case 0x9A: std::cout << " RES 3 D \n";  res(BITTHREE, reg.D); cycles=8; break;
-        case 0x9B: std::cout << " RES 3 E \n";  res(BITTHREE, reg.E); cycles=8; break;
-        case 0x9C: std::cout << " RES 3 H \n";  res(BITTHREE, reg.H); cycles=8; break;
-        case 0x9D: std::cout << " RES 3 L \n";  res(BITTHREE, reg.L); cycles=8; break;
-        case 0x9E: std::cout << " RES 3 (HL) \n";  res(BITTHREE, reg.A, true); cycles=16; break;
-        case 0x9F: std::cout << " RES 3 A \n";  res(BITTHREE, reg.A); cycles=8; break;
-        case 0xA0: std::cout << " RES 4 B \n";  res(BITFOUR, reg.B); cycles=8; break;
-        case 0xA1: std::cout << " RES 4 C \n";  res(BITFOUR, reg.C); cycles=8; break;
-        case 0xA2: std::cout << " RES 4 D \n";  res(BITFOUR, reg.D); cycles=8; break;
-        case 0xA3: std::cout << " RES 4 E \n";  res(BITFOUR, reg.E); cycles=8; break;
-        case 0xA4: std::cout << " RES 4 H \n";  res(BITFOUR, reg.H); cycles=8; break;
-        case 0xA5: std::cout << " RES 4 L \n";  res(BITFOUR, reg.L); cycles=8; break;
-        case 0xA6: std::cout << " RES 4 (HL) \n";  res(BITFOUR, reg.A, true); cycles=16; break;
-        case 0xA7: std::cout << " RES 4 A \n";  res(BITFOUR, reg.A); cycles=8; break;
-        case 0xA8: std::cout << " RES 5 B \n";  res(BITFIVE, reg.B); cycles=8; break;
-        case 0xA9: std::cout << " RES 5 C \n";  res(BITFIVE, reg.C); cycles=8; break;
-        case 0xAA: std::cout << " RES 5 D \n";  res(BITFIVE, reg.D); cycles=8; break;
-        case 0xAB: std::cout << " RES 5 E \n";  res(BITFIVE, reg.E); cycles=8; break;
-        case 0xAC: std::cout << " RES 5 H \n";  res(BITFIVE, reg.H); cycles=8; break;
-        case 0xAD: std::cout << " RES 5 L \n";  res(BITFIVE, reg.L); cycles=8; break;
-        case 0xAE: std::cout << " RES 5 (HL) \n";  res(BITFIVE, reg.A, true); cycles=16; break;
-        case 0xAF: std::cout << " RES 5 A \n";  res(BITFIVE, reg.A); cycles=8; break;
-        case 0xB0: std::cout << " RES 6 B \n";  res(BITSIX, reg.B); cycles=8; break;
-        case 0xB1: std::cout << " RES 6 C \n";  res(BITSIX, reg.C); cycles=8; break;
-        case 0xB2: std::cout << " RES 6 D \n";  res(BITSIX, reg.D); cycles=8; break;
-        case 0xB3: std::cout << " RES 6 E \n";  res(BITSIX, reg.E); cycles=8; break;
-        case 0xB4: std::cout << " RES 6 H \n";  res(BITSIX, reg.H); cycles=8; break;
-        case 0xB5: std::cout << " RES 6 L \n";  res(BITSIX, reg.L); cycles=8; break;
-        case 0xB6: std::cout << " RES 6 (HL) \n";  res(BITSIX, reg.A, true); cycles=16; break;
-        case 0xB7: std::cout << " RES 6 A \n";  res(BITSIX, reg.A); cycles=8; break;
-        case 0xB8: std::cout << " RES 7 B \n";  res(BITSEVEN, reg.B); cycles=8; break;
-        case 0xB9: std::cout << " RES 7 C \n";  res(BITSEVEN, reg.C); cycles=8; break;
-        case 0xBA: std::cout << " RES 7 D \n";  res(BITSEVEN, reg.D); cycles=8; break;
-        case 0xBB: std::cout << " RES 7 E \n";  res(BITSEVEN, reg.E); cycles=8; break;
-        case 0xBC: std::cout << " RES 7 H \n";  res(BITSEVEN, reg.H); cycles=8; break;
-        case 0xBD: std::cout << " RES 7 L \n";  res(BITSEVEN, reg.L); cycles=8; break;
-        case 0xBE: std::cout << " RES 7 (HL) \n";  res(BITSEVEN, reg.A, true); cycles=16; break;
-        case 0xBF: std::cout << " RES 7 A \n";  res(BITSEVEN, reg.A); cycles=8; break;
-        case 0xC0: std::cout << " SET 0 B \n";  set(BITZERO, reg.B); cycles=8; break;
-        case 0xC1: std::cout << " SET 0 C \n";  set(BITZERO, reg.C); cycles=8; break;
-        case 0xC2: std::cout << " SET 0 D \n";  set(BITZERO, reg.D); cycles=8; break;
-        case 0xC3: std::cout << " SET 0 E \n";  set(BITZERO, reg.E); cycles=8; break;
-        case 0xC4: std::cout << " SET 0 H \n";  set(BITZERO, reg.H); cycles=8; break;
-        case 0xC5: std::cout << " SET 0 L \n";  set(BITZERO, reg.L); cycles=8; break;
-        case 0xC6: std::cout << " SET 0 (HL) \n";  set(BITZERO, reg.A, true); cycles=16; break;
-        case 0xC7: std::cout << " SET 0 A \n";  set(BITZERO, reg.A); cycles=8; break;
-        case 0xC8: std::cout << " SET 1 B \n";  set(BITONE, reg.B); cycles=8; break;
-        case 0xC9: std::cout << " SET 1 C \n";  set(BITONE, reg.C); cycles=8; break;
-        case 0xCA: std::cout << " SET 1 D \n";  set(BITONE, reg.D); cycles=8; break;
-        case 0xCB: std::cout << " SET 1 E \n";  set(BITONE, reg.E); cycles=8; break;
-        case 0xCC: std::cout << " SET 1 H \n";  set(BITONE, reg.H); cycles=8; break;
-        case 0xCD: std::cout << " SET 1 L \n";  set(BITONE, reg.L); cycles=8; break;
-        case 0xCE: std::cout << " SET 1 (HL) \n";  set(BITONE, reg.A, true); cycles=16; break;
-        case 0xCF: std::cout << " SET 1 A \n";  set(BITONE, reg.A); cycles=8; break;
-        case 0xD0: std::cout << " SET 2 B \n";  set(BITTWO, reg.B); cycles=8; break;
-        case 0xD1: std::cout << " SET 2 C \n";  set(BITTWO, reg.C); cycles=8; break;
-        case 0xD2: std::cout << " SET 2 D \n";  set(BITTWO, reg.D); cycles=8; break;
-        case 0xD3: std::cout << " SET 2 E \n";  set(BITTWO, reg.E); cycles=8; break;
-        case 0xD4: std::cout << " SET 2 H \n";  set(BITTWO, reg.H); cycles=8; break;
-        case 0xD5: std::cout << " SET 2 L \n";  set(BITTWO, reg.L); cycles=8; break;
-        case 0xD6: std::cout << " SET 2 (HL) \n";  set(BITTWO, reg.A, true); cycles=16; break;
-        case 0xD7: std::cout << " SET 2 A \n";  set(BITTWO, reg.A); cycles=8; break;
-        case 0xD8: std::cout << " SET 3 B \n";  set(BITTHREE, reg.B); cycles=8; break;
-        case 0xD9: std::cout << " SET 3 C \n";  set(BITTHREE, reg.C); cycles=8; break;
-        case 0xDA: std::cout << " SET 3 D \n";  set(BITTHREE, reg.D); cycles=8; break;
-        case 0xDB: std::cout << " SET 3 E \n";  set(BITTHREE, reg.E); cycles=8; break;
-        case 0xDC: std::cout << " SET 3 H \n";  set(BITTHREE, reg.H); cycles=8; break;
-        case 0xDD: std::cout << " SET 3 L \n";  set(BITTHREE, reg.L); cycles=8; break;
-        case 0xDE: std::cout << " SET 3 (HL) \n";  set(BITTHREE, reg.A, true); cycles=16; break;
-        case 0xDF: std::cout << " SET 3 A \n";  set(BITTHREE, reg.A); cycles=8; break;
-        case 0xE0: std::cout << " SET 4 B \n";  set(BITFOUR, reg.B); cycles=8; break;
-        case 0xE1: std::cout << " SET 4 C \n";  set(BITFOUR, reg.C); cycles=8; break;
-        case 0xE2: std::cout << " SET 4 D \n";  set(BITFOUR, reg.D); cycles=8; break;
-        case 0xE3: std::cout << " SET 4 E \n";  set(BITFOUR, reg.E); cycles=8; break;
-        case 0xE4: std::cout << " SET 4 H \n";  set(BITFOUR, reg.H); cycles=8; break;
-        case 0xE5: std::cout << " SET 4 L \n";  set(BITFOUR, reg.L); cycles=8; break;
-        case 0xE6: std::cout << " SET 4 (HL) \n";  set(BITFOUR, reg.A, true); cycles=16; break;
-        case 0xE7: std::cout << " SET 4 A \n";  set(BITFOUR, reg.A); cycles=8; break;
-        case 0xE8: std::cout << " SET 5 B \n";  set(BITFIVE, reg.B); cycles=8; break;
-        case 0xE9: std::cout << " SET 5 C \n";  set(BITFIVE, reg.C); cycles=8; break;
-        case 0xEA: std::cout << " SET 5 D \n";  set(BITFIVE, reg.D); cycles=8; break;
-        case 0xEB: std::cout << " SET 5 E \n";  set(BITFIVE, reg.E); cycles=8; break;
-        case 0xEC: std::cout << " SET 5 H \n";  set(BITFIVE, reg.H); cycles=8; break;
-        case 0xED: std::cout << " SET 5 L \n";  set(BITFIVE, reg.L); cycles=8; break;
-        case 0xEE: std::cout << " SET 5 (HL) \n";  set(BITFIVE, reg.A, true); cycles=16; break;
-        case 0xEF: std::cout << " SET 5 A \n";  set(BITFIVE, reg.A); cycles=8; break;
-        case 0xF0: std::cout << " SET 6 B \n";  set(BITSIX, reg.B); cycles=8; break;
-        case 0xF1: std::cout << " SET 6 C \n";  set(BITSIX, reg.C); cycles=8; break;
-        case 0xF2: std::cout << " SET 6 D \n";  set(BITSIX, reg.D); cycles=8; break;
-        case 0xF3: std::cout << " SET 6 E \n";  set(BITSIX, reg.E); cycles=8; break;
-        case 0xF4: std::cout << " SET 6 H \n";  set(BITSIX, reg.H); cycles=8; break;
-        case 0xF5: std::cout << " SET 6 L \n";  set(BITSIX, reg.L); cycles=8; break;
-        case 0xF6: std::cout << " SET 6 (HL) \n";  set(BITSIX, reg.A, true); cycles=16; break;
-        case 0xF7: std::cout << " SET 6 A \n";  set(BITSIX, reg.A); cycles=8; break;
-        case 0xF8: std::cout << " SET 7 B \n";  set(BITSEVEN, reg.B); cycles=8; break;
-        case 0xF9: std::cout << " SET 7 C \n";  set(BITSEVEN, reg.C); cycles=8; break;
-        case 0xFA: std::cout << " SET 7 D \n";  set(BITSEVEN, reg.D); cycles=8; break;
-        case 0xFB: std::cout << " SET 7 E \n";  set(BITSEVEN, reg.E); cycles=8; break;
-        case 0xFC: std::cout << " SET 7 H \n";  set(BITSEVEN, reg.H); cycles=8; break;
-        case 0xFD: std::cout << " SET 7 L \n";  set(BITSEVEN, reg.L); cycles=8; break;
-        case 0xFE: std::cout << " SET 7 (HL) \n";  set(BITSEVEN, reg.A, true); cycles=16; break;
-        case 0xFF: std::cout << " SET 7 A \n";  set(BITSEVEN, reg.A); cycles=8; break;
-        default: std::cout << "***Instruction not recognized*** " << HEX(bitCode) << "\n"; break;
+        case 0x00:  rlc(reg.B); cycles=8; currentOpCode= "RLC B"; break;
+        case 0x01:  rlc(reg.C); cycles=8; currentOpCode= "RLC C"; break;
+        case 0x02:  rlc(reg.D); cycles=8; currentOpCode= "RLC D"; break;
+        case 0x03:  rlc(reg.E); cycles=8; currentOpCode= "RLC E"; break;
+        case 0x04:  rlc(reg.H); cycles=8; currentOpCode= "RLC H"; break;
+        case 0x05:  rlc(reg.L); cycles=8; currentOpCode= "RLC L"; break;
+        case 0x06:  rlc(reg.A, true); cycles=16; currentOpCode= "RLC (HL)"; break;
+        case 0x07:  rlc(reg.A); cycles=8; currentOpCode= "RLC A"; break;
+        case 0x08:  rrc(reg.B); cycles=8; currentOpCode= "RRC B"; break;
+        case 0x09:  rrc(reg.C); cycles=8; currentOpCode= "RRC C"; break;
+        case 0x0A:  rrc(reg.D); cycles=8; currentOpCode= "RRC D"; break;
+        case 0x0B:  rrc(reg.E); cycles=8; currentOpCode= "RRC E"; break;
+        case 0x0C:  rrc(reg.H); cycles=8; currentOpCode= "RRC H"; break;
+        case 0x0D:  rrc(reg.L); cycles=8; currentOpCode= "RRC L"; break;
+        case 0x0E:  rrc(reg.A, true); cycles=16; currentOpCode= "RRC (HL)"; break;
+        case 0x0F:  rrc(reg.A); cycles=8; currentOpCode= "RRC A"; break;
+        case 0x10:  rl(reg.B); cycles=8; currentOpCode= "RL B"; break;
+        case 0x11:  rl(reg.C); cycles=8; currentOpCode= "RL C"; break;
+        case 0x12:  rl(reg.D); cycles=8; currentOpCode= "RL D"; break;
+        case 0x13:  rl(reg.E); cycles=8; currentOpCode= "RL E"; break;
+        case 0x14:  rl(reg.H); cycles=8; currentOpCode= "RL H"; break;
+        case 0x15:  rl(reg.L); cycles=8; currentOpCode= "RL L"; break;
+        case 0x16:  rl(reg.A, true); cycles=16; currentOpCode= "RL (HL)"; break;
+        case 0x17:  rl(reg.A); cycles=8; currentOpCode= "RL A"; break;
+        case 0x18:  rr(reg.B); cycles=8; currentOpCode= "RR B"; break;
+        case 0x19:  rr(reg.C); cycles=8; currentOpCode= "RR C"; break;
+        case 0x1A:  rr(reg.D); cycles=8; currentOpCode= "RR D"; break;
+        case 0x1B:  rr(reg.E); cycles=8; currentOpCode= "RR E"; break;
+        case 0x1C:  rr(reg.H); cycles=8; currentOpCode= "RR H"; break;
+        case 0x1D:  rr(reg.L); cycles=8; currentOpCode= "RR L"; break;
+        case 0x1E:  rr(reg.A, true); cycles=16; currentOpCode= "RR (HL)"; break;
+        case 0x1F:  rr(reg.A); cycles=8; currentOpCode= "RR A"; break;
+        case 0x20:  sla(reg.B); cycles=8; currentOpCode= "SLA B"; break;
+        case 0x21:  sla(reg.C); cycles=8; currentOpCode= "SLA C"; break;
+        case 0x22:  sla(reg.D); cycles=8; currentOpCode= "SLA D"; break;
+        case 0x23:  sla(reg.E); cycles=8; currentOpCode= "SLA E"; break;
+        case 0x24:  sla(reg.H); cycles=8; currentOpCode= "SLA H"; break;
+        case 0x25:  sla(reg.L); cycles=8; currentOpCode= "SLA L"; break;
+        case 0x26:  sla(reg.A, true); cycles=16; currentOpCode= "SLA (HL)"; break;
+        case 0x27:  sla(reg.A); cycles=8; currentOpCode= "SLA A"; break;
+        case 0x28:  sra(reg.B); cycles=8; currentOpCode= "SRA B"; break;
+        case 0x29:  sra(reg.C); cycles=8; currentOpCode= "SRA C"; break;
+        case 0x2A:  sra(reg.D); cycles=8; currentOpCode= "SRA D"; break;
+        case 0x2B:  sra(reg.E); cycles=8; currentOpCode= "SRA E"; break;
+        case 0x2C:  sra(reg.H); cycles=8; currentOpCode= "SRA H"; break;
+        case 0x2D:  sra(reg.L); cycles=8; currentOpCode= "SRA L"; break;
+        case 0x2E:  sra(reg.A, true); cycles=16; currentOpCode= "SRA (HL)"; break;
+        case 0x2F:  sra(reg.A); cycles=8; currentOpCode= "SRA A"; break;
+        case 0x30:  swap(reg.B); cycles=8; currentOpCode= "SWAP B"; break;
+        case 0x31:  swap(reg.C); cycles=8; currentOpCode= "SWAP C"; break;
+        case 0x32:  swap(reg.D); cycles=8; currentOpCode= "SWAP D"; break;
+        case 0x33:  swap(reg.E); cycles=8; currentOpCode= "SWAP E"; break;
+        case 0x34:  swap(reg.H); cycles=8; currentOpCode= "SWAP H"; break;
+        case 0x35:  swap(reg.L); cycles=8; currentOpCode= "SWAP L"; break;
+        case 0x36:  swap(reg.A, true); cycles=16; currentOpCode= "SWAP (HL)"; break;
+        case 0x37:  swap(reg.A); cycles=8; currentOpCode= "SWAP A"; break;
+        case 0x38:  srl(reg.B); cycles=8; currentOpCode= "SRL B"; break;
+        case 0x39:  srl(reg.C); cycles=8; currentOpCode= "SRL C"; break;
+        case 0x3A:  srl(reg.D); cycles=8; currentOpCode= "SRL D"; break;
+        case 0x3B:  srl(reg.E); cycles=8; currentOpCode= "SRL E"; break;
+        case 0x3C:  srl(reg.H); cycles=8; currentOpCode= "SRL H"; break;
+        case 0x3D:  srl(reg.L); cycles=8; currentOpCode= "SRL L"; break;
+        case 0x3E:  srl(reg.A, true); cycles=16; currentOpCode= "SRL (HL)"; break;
+        case 0x3F:  srl(reg.A); cycles=8; currentOpCode= "SRL A"; break;
+        case 0x40:  bit(BITZERO, reg.B); cycles=8; currentOpCode= "BIT 0 B"; break;
+        case 0x41:  bit(BITZERO, reg.C); cycles=8; currentOpCode= "BIT 0 C"; break;
+        case 0x42:  bit(BITZERO, reg.D); cycles=8; currentOpCode= "BIT 0 D"; break;
+        case 0x43:  bit(BITZERO, reg.E); cycles=8; currentOpCode= "BIT 0 E"; break;
+        case 0x44:  bit(BITZERO, reg.H); cycles=8; currentOpCode= "BIT 0 H"; break;
+        case 0x45:  bit(BITZERO, reg.L); cycles=8; currentOpCode= "BIT 0 L"; break;
+        case 0x46:  bit(BITZERO, reg.A, true); cycles=12; currentOpCode= "BIT 0 (HL)"; break;
+        case 0x47:  bit(BITZERO, reg.A); cycles=8; currentOpCode= "BIT 0 A"; break;
+        case 0x48:  bit(BITONE, reg.B); cycles=8; currentOpCode= "BIT 1 B"; break;
+        case 0x49:  bit(BITONE, reg.C); cycles=8; currentOpCode= "BIT 1 C"; break;
+        case 0x4A:  bit(BITONE, reg.D); cycles=8; currentOpCode= "BIT 1 D"; break;
+        case 0x4B:  bit(BITONE, reg.E); cycles=8; currentOpCode= "BIT 1 E"; break;
+        case 0x4C:  bit(BITONE, reg.H); cycles=8; currentOpCode= "BIT 1 H"; break;
+        case 0x4D:  bit(BITONE, reg.L); cycles=8; currentOpCode= "BIT 1 L"; break;
+        case 0x4E:  bit(BITONE, reg.A, true); cycles=12; currentOpCode= "BIT 1 (HL)"; break;
+        case 0x4F:  bit(BITONE, reg.A); cycles=8; currentOpCode= "BIT 1 A"; break;
+        case 0x50:  bit(BITTWO, reg.B); cycles=8; currentOpCode= "BIT 2 B"; break;
+        case 0x51:  bit(BITTWO, reg.C); cycles=8; currentOpCode= "BIT 2 C"; break;
+        case 0x52:  bit(BITTWO, reg.D); cycles=8; currentOpCode= "BIT 2 D"; break;
+        case 0x53:  bit(BITTWO, reg.E); cycles=8; currentOpCode= "BIT 2 E"; break;
+        case 0x54:  bit(BITTWO, reg.H); cycles=8; currentOpCode= "BIT 2 H"; break;
+        case 0x55:  bit(BITTWO, reg.L); cycles=8; currentOpCode= "BIT 2 L"; break;
+        case 0x56:  bit(BITTWO, reg.A, true); cycles=12; currentOpCode= "BIT 2 (HL)"; break;
+        case 0x57:  bit(BITTWO, reg.A); cycles=8; currentOpCode= "BIT 2 A"; break;
+        case 0x58:  bit(BITTHREE, reg.B); cycles=8; currentOpCode= "BIT 3 B"; break;
+        case 0x59:  bit(BITTHREE, reg.C); cycles=8; currentOpCode= "BIT 3 C"; break;
+        case 0x5A:  bit(BITTHREE, reg.D); cycles=8; currentOpCode= "BIT 3 D"; break;
+        case 0x5B:  bit(BITTHREE, reg.E); cycles=8; currentOpCode= "BIT 3 E"; break;
+        case 0x5C:  bit(BITTHREE, reg.H); cycles=8; currentOpCode= "BIT 3 H"; break;
+        case 0x5D:  bit(BITTHREE, reg.L); cycles=8; currentOpCode= "BIT 3 L"; break;
+        case 0x5E:  bit(BITTHREE, reg.A, true); cycles=12; currentOpCode= "BIT 3 (HL)"; break;
+        case 0x5F:  bit(BITTHREE, reg.A); cycles=8; currentOpCode= "BIT 3 A"; break;
+        case 0x60:  bit(BITFOUR, reg.B); cycles=8; currentOpCode= "BIT 4 B"; break;
+        case 0x61:  bit(BITFOUR, reg.C); cycles=8; currentOpCode= "BIT 4 C"; break;
+        case 0x62:  bit(BITFOUR, reg.D); cycles=8; currentOpCode= "BIT 4 D"; break;
+        case 0x63:  bit(BITFOUR, reg.E); cycles=8; currentOpCode= "BIT 4 E"; break;
+        case 0x64:  bit(BITFOUR, reg.H); cycles=8; currentOpCode= "BIT 4 H"; break;
+        case 0x65:  bit(BITFOUR, reg.L); cycles=8; currentOpCode= "BIT 4 L"; break;
+        case 0x66:  bit(BITFOUR, reg.A, true); cycles=12; currentOpCode= "BIT 4 (HL)"; break;
+        case 0x67:  bit(BITFOUR, reg.A); cycles=8; currentOpCode= "BIT 4 A"; break;
+        case 0x68:  bit(BITFIVE, reg.B); cycles=8; currentOpCode= "BIT 5 B"; break;
+        case 0x69:  bit(BITFIVE, reg.C); cycles=8; currentOpCode= "BIT 5 C"; break;
+        case 0x6A:  bit(BITFIVE, reg.D); cycles=8; currentOpCode= "BIT 5 D"; break;
+        case 0x6B:  bit(BITFIVE, reg.E); cycles=8; currentOpCode= "BIT 5 E"; break;
+        case 0x6C:  bit(BITFIVE, reg.H); cycles=8; currentOpCode= "BIT 5 H"; break;
+        case 0x6D:  bit(BITFIVE, reg.L); cycles=8; currentOpCode= "BIT 5 L"; break;
+        case 0x6E:  bit(BITFIVE, reg.A, true); cycles=12; currentOpCode= "BIT 5 (HL)"; break;
+        case 0x6F:  bit(BITFIVE, reg.A); cycles=8; currentOpCode= "BIT 5 A"; break;
+        case 0x70:  bit(BITSIX, reg.B); cycles=8; currentOpCode= "BIT 6 B"; break;
+        case 0x71:  bit(BITSIX, reg.C); cycles=8; currentOpCode= "BIT 6 C"; break;
+        case 0x72:  bit(BITSIX, reg.D); cycles=8; currentOpCode= "BIT 6 D"; break;
+        case 0x73:  bit(BITSIX, reg.E); cycles=8; currentOpCode= "BIT 6 E"; break;
+        case 0x74:  bit(BITSIX, reg.H); cycles=8; currentOpCode= "BIT 6 H"; break;
+        case 0x75:  bit(BITSIX, reg.L); cycles=8; currentOpCode= "BIT 6 L"; break;
+        case 0x76:  bit(BITSIX, reg.A, true); cycles=12; currentOpCode= "BIT 6 (HL)"; break;
+        case 0x77:  bit(BITSIX, reg.A); cycles=8; currentOpCode= "BIT 6 A"; break;
+        case 0x78:  bit(BITSEVEN, reg.B); cycles=8; currentOpCode= "BIT 7 B"; break;
+        case 0x79:  bit(BITSEVEN, reg.C); cycles=8; currentOpCode= "BIT 7 C"; break;
+        case 0x7A:  bit(BITSEVEN, reg.D); cycles=8; currentOpCode= "BIT 7 D"; break;
+        case 0x7B:  bit(BITSEVEN, reg.E); cycles=8; currentOpCode= "BIT 7 E"; break;
+        case 0x7C:  bit(BITSEVEN, reg.H); cycles=8; currentOpCode= "BIT 7 H"; break;
+        case 0x7D:  bit(BITSEVEN, reg.L); cycles=8; currentOpCode= "BIT 7 L"; break;
+        case 0x7E:  bit(BITSEVEN, reg.A, true); cycles=12; currentOpCode= "BIT 7 (HL)"; break;
+        case 0x7F:  bit(BITSEVEN, reg.A); cycles=8; currentOpCode= "BIT 7 A"; break;
+        case 0x80:  res(BITZERO, reg.B); cycles=8; currentOpCode= "RES 0 B"; break;
+        case 0x81:  res(BITZERO, reg.C); cycles=8; currentOpCode= "RES 0 C"; break;
+        case 0x82:  res(BITZERO, reg.D); cycles=8; currentOpCode= "RES 0 D"; break;
+        case 0x83:  res(BITZERO, reg.E); cycles=8; currentOpCode= "RES 0 E"; break;
+        case 0x84:  res(BITZERO, reg.H); cycles=8; currentOpCode= "RES 0 H"; break;
+        case 0x85:  res(BITZERO, reg.L); cycles=8; currentOpCode= "RES 0 L"; break;
+        case 0x86:  res(BITZERO, reg.A, true); cycles=16; currentOpCode= "RES 0 (HL)"; break;
+        case 0x87:  res(BITZERO, reg.A); cycles=8; currentOpCode= "RES 0 A"; break;
+        case 0x88:  res(BITONE, reg.B); cycles=8; currentOpCode= "RES 1 B"; break;
+        case 0x89:  res(BITONE, reg.C); cycles=8; currentOpCode= "RES 1 C"; break;
+        case 0x8A:  res(BITONE, reg.D); cycles=8; currentOpCode= "RES 1 D"; break;
+        case 0x8B:  res(BITONE, reg.E); cycles=8; currentOpCode= "RES 1 E"; break;
+        case 0x8C:  res(BITONE, reg.H); cycles=8; currentOpCode= "RES 1 H"; break;
+        case 0x8D:  res(BITONE, reg.L); cycles=8; currentOpCode= "RES 1 L"; break;
+        case 0x8E:  res(BITONE, reg.A, true); cycles=16; currentOpCode= "RES 1 (HL)"; break;
+        case 0x8F:  res(BITONE, reg.A); cycles=8; currentOpCode= "RES 1 A"; break;
+        case 0x90:  res(BITTWO, reg.B); cycles=8; currentOpCode= "RES 2 B"; break;
+        case 0x91:  res(BITTWO, reg.C); cycles=8; currentOpCode= "RES 2 C"; break;
+        case 0x92:  res(BITTWO, reg.D); cycles=8; currentOpCode= "RES 2 D"; break;
+        case 0x93:  res(BITTWO, reg.E); cycles=8; currentOpCode= "RES 2 E"; break;
+        case 0x94:  res(BITTWO, reg.H); cycles=8; currentOpCode= "RES 2 H"; break;
+        case 0x95:  res(BITTWO, reg.L); cycles=8; currentOpCode= "RES 2 L"; break;
+        case 0x96:  res(BITTWO, reg.A, true); cycles=16; currentOpCode= "RES 2 (HL)"; break;
+        case 0x97:  res(BITTWO, reg.A); cycles=8; currentOpCode= "RES 2 A"; break;
+        case 0x98:  res(BITTHREE, reg.B); cycles=8; currentOpCode= "RES 3 B"; break;
+        case 0x99:  res(BITTHREE, reg.C); cycles=8; currentOpCode= "RES 3 C"; break;
+        case 0x9A:  res(BITTHREE, reg.D); cycles=8; currentOpCode= "RES 3 D"; break;
+        case 0x9B:  res(BITTHREE, reg.E); cycles=8; currentOpCode= "RES 3 E"; break;
+        case 0x9C:  res(BITTHREE, reg.H); cycles=8; currentOpCode= "RES 3 H"; break;
+        case 0x9D:  res(BITTHREE, reg.L); cycles=8; currentOpCode= "RES 3 L"; break;
+        case 0x9E:  res(BITTHREE, reg.A, true); cycles=16; currentOpCode= "RES 3 (HL)"; break;
+        case 0x9F:  res(BITTHREE, reg.A); cycles=8; currentOpCode= "RES 3 A"; break;
+        case 0xA0:  res(BITFOUR, reg.B); cycles=8; currentOpCode= "RES 4 B"; break;
+        case 0xA1:  res(BITFOUR, reg.C); cycles=8; currentOpCode= "RES 4 C"; break;
+        case 0xA2:  res(BITFOUR, reg.D); cycles=8; currentOpCode= "RES 4 D"; break;
+        case 0xA3:  res(BITFOUR, reg.E); cycles=8; currentOpCode= "RES 4 E"; break;
+        case 0xA4:  res(BITFOUR, reg.H); cycles=8; currentOpCode= "RES 4 H"; break;
+        case 0xA5:  res(BITFOUR, reg.L); cycles=8; currentOpCode= "RES 4 L"; break;
+        case 0xA6:  res(BITFOUR, reg.A, true); cycles=16; currentOpCode= "RES 4 (HL)"; break;
+        case 0xA7:  res(BITFOUR, reg.A); cycles=8; currentOpCode= "RES 4 A"; break;
+        case 0xA8:  res(BITFIVE, reg.B); cycles=8; currentOpCode= "RES 5 B"; break;
+        case 0xA9:  res(BITFIVE, reg.C); cycles=8; currentOpCode= "RES 5 C"; break;
+        case 0xAA:  res(BITFIVE, reg.D); cycles=8; currentOpCode= "RES 5 D"; break;
+        case 0xAB:  res(BITFIVE, reg.E); cycles=8; currentOpCode= "RES 5 E"; break;
+        case 0xAC:  res(BITFIVE, reg.H); cycles=8; currentOpCode= "RES 5 H"; break;
+        case 0xAD:  res(BITFIVE, reg.L); cycles=8; currentOpCode= "RES 5 L"; break;
+        case 0xAE:  res(BITFIVE, reg.A, true); cycles=16; currentOpCode= "RES 5 (HL)"; break;
+        case 0xAF:  res(BITFIVE, reg.A); cycles=8; currentOpCode= "RES 5 A"; break;
+        case 0xB0:  res(BITSIX, reg.B); cycles=8; currentOpCode= "RES 6 B"; break;
+        case 0xB1:  res(BITSIX, reg.C); cycles=8; currentOpCode= "RES 6 C"; break;
+        case 0xB2:  res(BITSIX, reg.D); cycles=8; currentOpCode= "RES 6 D"; break;
+        case 0xB3:  res(BITSIX, reg.E); cycles=8; currentOpCode= "RES 6 E"; break;
+        case 0xB4:  res(BITSIX, reg.H); cycles=8; currentOpCode= "RES 6 H"; break;
+        case 0xB5:  res(BITSIX, reg.L); cycles=8; currentOpCode= "RES 6 L"; break;
+        case 0xB6:  res(BITSIX, reg.A, true); cycles=16; currentOpCode= "RES 6 (HL)"; break;
+        case 0xB7:  res(BITSIX, reg.A); cycles=8; currentOpCode= "RES 6 A"; break;
+        case 0xB8:  res(BITSEVEN, reg.B); cycles=8; currentOpCode= "RES 7 B"; break;
+        case 0xB9:  res(BITSEVEN, reg.C); cycles=8; currentOpCode= "RES 7 C"; break;
+        case 0xBA:  res(BITSEVEN, reg.D); cycles=8; currentOpCode= "RES 7 D"; break;
+        case 0xBB:  res(BITSEVEN, reg.E); cycles=8; currentOpCode= "RES 7 E"; break;
+        case 0xBC:  res(BITSEVEN, reg.H); cycles=8; currentOpCode= "RES 7 H"; break;
+        case 0xBD:  res(BITSEVEN, reg.L); cycles=8; currentOpCode= "RES 7 L"; break;
+        case 0xBE:  res(BITSEVEN, reg.A, true); cycles=16; currentOpCode= "RES 7 (HL)"; break;
+        case 0xBF:  res(BITSEVEN, reg.A); cycles=8; currentOpCode= "RES 7 A"; break;
+        case 0xC0:  set(BITZERO, reg.B); cycles=8; currentOpCode= "SET 0 B"; break;
+        case 0xC1:  set(BITZERO, reg.C); cycles=8; currentOpCode= "SET 0 C"; break;
+        case 0xC2:  set(BITZERO, reg.D); cycles=8; currentOpCode= "SET 0 D"; break;
+        case 0xC3:  set(BITZERO, reg.E); cycles=8; currentOpCode= "SET 0 E"; break;
+        case 0xC4:  set(BITZERO, reg.H); cycles=8; currentOpCode= "SET 0 H"; break;
+        case 0xC5:  set(BITZERO, reg.L); cycles=8; currentOpCode= "SET 0 L"; break;
+        case 0xC6:  set(BITZERO, reg.A, true); cycles=16; currentOpCode= "SET 0 (HL)"; break;
+        case 0xC7:  set(BITZERO, reg.A); cycles=8; currentOpCode= "SET 0 A"; break;
+        case 0xC8:  set(BITONE, reg.B); cycles=8; currentOpCode= "SET 1 B"; break;
+        case 0xC9:  set(BITONE, reg.C); cycles=8; currentOpCode= "SET 1 C"; break;
+        case 0xCA:  set(BITONE, reg.D); cycles=8; currentOpCode= "SET 1 D"; break;
+        case 0xCB:  set(BITONE, reg.E); cycles=8; currentOpCode= "SET 1 E"; break;
+        case 0xCC:  set(BITONE, reg.H); cycles=8; currentOpCode= "SET 1 H"; break;
+        case 0xCD:  set(BITONE, reg.L); cycles=8; currentOpCode= "SET 1 L"; break;
+        case 0xCE:  set(BITONE, reg.A, true); cycles=16; currentOpCode= "SET 1 (HL)"; break;
+        case 0xCF:  set(BITONE, reg.A); cycles=8; currentOpCode= "SET 1 A"; break;
+        case 0xD0:  set(BITTWO, reg.B); cycles=8; currentOpCode= "SET 2 B"; break;
+        case 0xD1:  set(BITTWO, reg.C); cycles=8; currentOpCode= "SET 2 C"; break;
+        case 0xD2:  set(BITTWO, reg.D); cycles=8; currentOpCode= "SET 2 D"; break;
+        case 0xD3:  set(BITTWO, reg.E); cycles=8; currentOpCode= "SET 2 E"; break;
+        case 0xD4:  set(BITTWO, reg.H); cycles=8; currentOpCode= "SET 2 H"; break;
+        case 0xD5:  set(BITTWO, reg.L); cycles=8; currentOpCode= "SET 2 L"; break;
+        case 0xD6:  set(BITTWO, reg.A, true); cycles=16; currentOpCode= "SET 2 (HL)"; break;
+        case 0xD7:  set(BITTWO, reg.A); cycles=8; currentOpCode= "SET 2 A"; break;
+        case 0xD8:  set(BITTHREE, reg.B); cycles=8; currentOpCode= "SET 3 B"; break;
+        case 0xD9:  set(BITTHREE, reg.C); cycles=8; currentOpCode= "SET 3 C"; break;
+        case 0xDA:  set(BITTHREE, reg.D); cycles=8; currentOpCode= "SET 3 D"; break;
+        case 0xDB:  set(BITTHREE, reg.E); cycles=8; currentOpCode= "SET 3 E"; break;
+        case 0xDC:  set(BITTHREE, reg.H); cycles=8; currentOpCode= "SET 3 H"; break;
+        case 0xDD:  set(BITTHREE, reg.L); cycles=8; currentOpCode= "SET 3 L"; break;
+        case 0xDE:  set(BITTHREE, reg.A, true); cycles=16; currentOpCode= "SET 3 (HL)"; break;
+        case 0xDF:  set(BITTHREE, reg.A); cycles=8; currentOpCode= "SET 3 A"; break;
+        case 0xE0:  set(BITFOUR, reg.B); cycles=8; currentOpCode= "SET 4 B"; break;
+        case 0xE1:  set(BITFOUR, reg.C); cycles=8; currentOpCode= "SET 4 C"; break;
+        case 0xE2:  set(BITFOUR, reg.D); cycles=8; currentOpCode= "SET 4 D"; break;
+        case 0xE3:  set(BITFOUR, reg.E); cycles=8; currentOpCode= "SET 4 E"; break;
+        case 0xE4:  set(BITFOUR, reg.H); cycles=8; currentOpCode= "SET 4 H"; break;
+        case 0xE5:  set(BITFOUR, reg.L); cycles=8; currentOpCode= "SET 4 L"; break;
+        case 0xE6:  set(BITFOUR, reg.A, true); cycles=16; currentOpCode= "SET 4 (HL)"; break;
+        case 0xE7:  set(BITFOUR, reg.A); cycles=8; currentOpCode= "SET 4 A"; break;
+        case 0xE8:  set(BITFIVE, reg.B); cycles=8; currentOpCode= "SET 5 B"; break;
+        case 0xE9:  set(BITFIVE, reg.C); cycles=8; currentOpCode= "SET 5 C"; break;
+        case 0xEA:  set(BITFIVE, reg.D); cycles=8; currentOpCode= "SET 5 D"; break;
+        case 0xEB:  set(BITFIVE, reg.E); cycles=8; currentOpCode= "SET 5 E"; break;
+        case 0xEC:  set(BITFIVE, reg.H); cycles=8; currentOpCode= "SET 5 H"; break;
+        case 0xED:  set(BITFIVE, reg.L); cycles=8; currentOpCode= "SET 5 L"; break;
+        case 0xEE:  set(BITFIVE, reg.A, true); cycles=16; currentOpCode= "SET 5 (HL)"; break;
+        case 0xEF:  set(BITFIVE, reg.A); cycles=8; currentOpCode= "SET 5 A"; break;
+        case 0xF0:  set(BITSIX, reg.B); cycles=8; currentOpCode= "SET 6 B"; break;
+        case 0xF1:  set(BITSIX, reg.C); cycles=8; currentOpCode= "SET 6 C"; break;
+        case 0xF2:  set(BITSIX, reg.D); cycles=8; currentOpCode= "SET 6 D"; break;
+        case 0xF3:  set(BITSIX, reg.E); cycles=8; currentOpCode= "SET 6 E"; break;
+        case 0xF4:  set(BITSIX, reg.H); cycles=8; currentOpCode= "SET 6 H"; break;
+        case 0xF5:  set(BITSIX, reg.L); cycles=8; currentOpCode= "SET 6 L"; break;
+        case 0xF6:  set(BITSIX, reg.A, true); cycles=16; currentOpCode= "SET 6 (HL)"; break;
+        case 0xF7:  set(BITSIX, reg.A); cycles=8; currentOpCode= "SET 6 A"; break;
+        case 0xF8:  set(BITSEVEN, reg.B); cycles=8; currentOpCode= "SET 7 B"; break;
+        case 0xF9:  set(BITSEVEN, reg.C); cycles=8; currentOpCode= "SET 7 C"; break;
+        case 0xFA:  set(BITSEVEN, reg.D); cycles=8; currentOpCode= "SET 7 D"; break;
+        case 0xFB:  set(BITSEVEN, reg.E); cycles=8; currentOpCode= "SET 7 E"; break;
+        case 0xFC:  set(BITSEVEN, reg.H); cycles=8; currentOpCode= "SET 7 H"; break;
+        case 0xFD:  set(BITSEVEN, reg.L); cycles=8; currentOpCode= "SET 7 L"; break;
+        case 0xFE:  set(BITSEVEN, reg.A, true); cycles=16; currentOpCode= "SET 7 (HL)"; break;
+        case 0xFF:  set(BITSEVEN, reg.A); cycles=8; currentOpCode= "SET 7 A"; break;
+        default: debugOpCode << "***Instruction not recognized*** " << HEXPRINT(bitCode) << "\n"; break;
     }
 
-
+    if (printOpCode){
+        debugOpCode << currentOpCode;
+    }
 }
 

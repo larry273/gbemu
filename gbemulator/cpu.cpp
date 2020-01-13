@@ -14,25 +14,28 @@ void CPU::run(){
 
 //cpu loop
 void CPU::cpu_loop(){
-
-
     bool isCpuRunning = true;
     QElapsedTimer timer;
 
     QDir::setCurrent("/home/larry/Documents/gbemu/gbemulator");
-    //gbdata.filename = "cpu_instrs.gb";
-    gbdata.filename = "boot.bin";
+
+    gbdata.filename = "blue.gb";
+    //gbdata.filename = "boot.bin";
 
     //reset registers to default no boot values
     reset();
 
+    this->readFiletoBytes(gbdata, true);
     this->readFiletoBytes(gbdata);
 
     int currentCycle = 0;
     float cyclesPerFrame = CLOCK_SPEED / 60;
     float frameTime = 1000 / 60;
+    //debugging
+    debug = true;
+    printOpCode = false;
 
-    //emit gpu->frameCompleted();
+    emit gpu->frameCompleted();
 
     //1 machine cycles = 4 clock cycles
     while(isCpuRunning){
@@ -44,49 +47,30 @@ void CPU::cpu_loop(){
         //opcodes per frame loop
         while (currentCycle < cyclesPerFrame){
             decodeByte(reg.PC);
-
             gpu->updateScanline(cycles);
-
             //performInterrupts(reg.PC);
-
             currentCycle += cycles;
-
-            //debug stay in loop
-            if (debug){
-
-                emit regValChanged();
-                emit flagsChanged();
-                emit memoryChanged();
-                emit opcodeChanged();
-
-                while(nextOpCode){
-                    //blocking loop
-                }
-
-                //halt emulation until button pressed
-                nextOpCode = true;
-            }
-
         }
-
-        //emit memoryChanged();
-        //emit vidMemChanged();
-        //emit flagsChanged();
 
         //delay timings
         float delayTime = frameTime - timer.elapsed();
         if (timer.elapsed() < frameTime){
-            std::cout << "DELAYTIME: " << delayTime << "\n";
+            //std::cout << "DELAYTIME: " << delayTime << "\n";
             QThread::msleep(delayTime);
         }
     }
 }
 
 //read file as bytes
-void CPU::readFiletoBytes(struct gbData &gbdata){
+void CPU::readFiletoBytes(struct gbData &gbdata, bool isBoot){
     std::cout << "starting file read \n";
 
-    std::ifstream file(gbdata.filename, std::ios::binary);
+    std::string loadFile = gbdata.filename;
+    if(isBoot){
+        loadFile = "boot.bin";
+    }
+
+    std::ifstream file(loadFile, std::ios::binary);
     if( !file.is_open() ) {
         std::cout << "file failed to open \n";
         return;
@@ -94,6 +78,7 @@ void CPU::readFiletoBytes(struct gbData &gbdata){
 
     //read content of file into buffer
     std::vector<uint8_t> content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
     /*
     int count = 0;
     for(unsigned char& c : content) {
@@ -105,30 +90,41 @@ void CPU::readFiletoBytes(struct gbData &gbdata){
     }
     */
 
-    gbdata.buffer = content;
-    //add game rom to memory location
-    mem.gameRom.insert(mem.gameRom.begin(), content.begin(), content.begin() + 0x3FFF);
-    mem.gameRomSwitchable.insert(mem.gameRomSwitchable.begin(), content.begin() + 0x3FFF, content.begin() + 0x7FFF);
+    if(!isBoot){
+        gbdata.buffer = content;
+        //add game rom to memory location
+        mem.gameRom.insert(mem.gameRom.begin() + 0x0100, content.begin() + 0x100, content.begin() + (0x3FFF - 0x0100) );
+        mem.gameRomSwitchable.insert(mem.gameRomSwitchable.begin(), content.begin() + (0x3FFF - 0x0100), content.begin() + (0x7FFF - 0x0100));
+    }
+    else{
+        gbdata.boot = content;
+        mem.gameRom.insert(mem.gameRom.begin(), content.begin(), content.begin() + 0x3FFF);
+    }
+
 
     std::cout << "\nfinish file read \n";
 }
 
 std::vector<int> CPU::getRegValues(){
-
     int af = joinByte(reg.A, reg.F);
     int bc = joinByte(reg.B, reg.C);
     int de = joinByte(reg.D, reg.E);
     int hl = joinByte(reg.H, reg.L);
 
-    std::vector<int> values = {af, bc, de, hl, reg.PC, reg.SP};
+    int lcdc = mem.read(0xFF40);
+    int stat = mem.read(0xFF41);
+    int ly = mem.read(0xFF44);
+
+    std::vector<int> values = {af, bc, de, hl, reg.SP, reg.PC, lcdc, stat, ly};
     return values;
 }
 
 QString CPU::getMemory(){
     QString output;
-    output += formatMemory(mem.gameRom, 0);
-    output += formatMemory(mem.mainMem, 0x4000);
+    //output += formatMemory(mem.gameRom, 0);
+    //output += formatMemory(mem.mainMem, 0x4000);
     output += formatMemory(mem.smallMem, 0xFF00);
+    output += formatMemory(mem.videoMem, 0x8000);
     return output;
 }
 QString CPU::getVidMemory(){
@@ -143,11 +139,11 @@ QString CPU::getFlags(){
     int H = (reg.F >> 5) & 0x1;
     int C = (reg.F >> 4) & 0x1;
 
-    QString output = QString("Z: %1  N: %2  H: %3  C: %4").arg(Z).arg(N).arg(H).arg(C);
+    QString output = QString("Z: %1 N: %2 H: %3 C: %4").arg(Z).arg(N).arg(H).arg(C);
     return output;
 }
 QString CPU::getOpcode(){
-    return currentOpCode;
+    return currentOpCode + " \n";
 }
 
 void CPU::performInterrupts(uint16_t &pc){
@@ -182,7 +178,7 @@ void CPU::resetNoBoot(){
 
 
 //8 bit register loads
-void CPU::load(uint8_t &regA, uint8_t &regB){
+void CPU::load(uint8_t &regA, uint8_t regB){
     regA = regB;
 }
 void CPU::load(uint8_t &regA, uint8_t *data){
@@ -223,13 +219,14 @@ void CPU::inc(uint8_t &regA, bool isMem){
     if (isMem){
         //regA = mem.read(pairReg(reg.H, reg.L));
         inc(reg.H, reg.L);
+        return;
     }
 
     uint8_t r = regA + 1;
 
-    this->setFlag(FLAGZERO, r == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, ((regA & 0xF) + (1 & 0xF)) > 0xF); //set if carry to bit 4
+    setFlag(FLAGZERO, r == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, ((regA & 0xF) + (1 & 0xF)) > 0xF); //set if carry to bit 4
     regA = r;
 
     //if (isMem){
@@ -240,13 +237,14 @@ void CPU::dec(uint8_t &regA, bool isMem){
     if (isMem){
         //regA = mem.read(pairReg(reg.H, reg.L));
         dec(reg.H, reg.L);
+        return;
     }
 
     uint8_t r = regA - 1;
 
-    this->setFlag(FLAGZERO, r == 0);
-    this->setFlag(FLAGSUB, true);
-    this->setFlag(FLAGHALFCARRY, ((regA & 0xF) - (1 & 0xF)) < 0); //set if no borrow from bit 4
+    setFlag(FLAGZERO, r == 0);
+    setFlag(FLAGSUB, true);
+    setFlag(FLAGHALFCARRY, ((regA & 0xF) - (1 & 0xF)) < 0); //set if no borrow from bit 4
     regA = r;
 
     //if (isMem){
@@ -256,28 +254,28 @@ void CPU::dec(uint8_t &regA, bool isMem){
 void CPU::logAnd(uint8_t &regA, uint8_t regB){
     regA = regA & regB;
 
-    this->setFlag(FLAGZERO, regA == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, true); //set if carry to bit 4
-    this->setFlag(FLAGCARRY, false);
+    setFlag(FLAGZERO, regA == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, true); //set if carry to bit 4
+    setFlag(FLAGCARRY, false);
 }
 
 void CPU::logOr(uint8_t &regA, uint8_t regB){
     regA = regA ^ regB;
 
-    this->setFlag(FLAGZERO, regA == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false); //set if carry to bit 4
-    this->setFlag(FLAGCARRY, false);
+    setFlag(FLAGZERO, regA == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false); //set if carry to bit 4
+    setFlag(FLAGCARRY, false);
 }
 
 void CPU::logXor(uint8_t &regA, uint8_t regB){
     regA = regA ^ regB;
 
-    this->setFlag(FLAGZERO, regA == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false); //set if carry to bit 4
-    this->setFlag(FLAGCARRY, false);
+    setFlag(FLAGZERO, regA == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false); //set if carry to bit 4
+    setFlag(FLAGCARRY, false);
 }
 
 void CPU::add(uint8_t &regA, uint8_t data){
@@ -285,10 +283,10 @@ void CPU::add(uint8_t &regA, uint8_t data){
     uint16_t d = uint16_t(data);
     uint16_t r = regA + data;
 
-    this->setFlag(FLAGZERO, (r & 0xFF) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, ((a & 0x0F) + (d & 0x0F)) > 0x0F); //set if carry to bit 4
-    this->setFlag(FLAGCARRY, r > 0xFF);
+    setFlag(FLAGZERO, (r & 0xFF) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, ((a & 0x0F) + (d & 0x0F)) > 0x0F); //set if carry to bit 4
+    setFlag(FLAGCARRY, r > 0xFF);
     regA = (r & 0xFF);
 }
 void CPU::sub(uint8_t &regA, uint8_t data){
@@ -297,10 +295,10 @@ void CPU::sub(uint8_t &regA, uint8_t data){
 
     int16_t r = a - d;
 
-    this->setFlag(FLAGZERO, (r & 0xFF) == 0);
-    this->setFlag(FLAGSUB, true);
-    this->setFlag(FLAGHALFCARRY, ((a & 0xF) - (d & 0xF)) < 0); //set if carry to bit 4
-    this->setFlag(FLAGCARRY, r < 0);
+    setFlag(FLAGZERO, (r & 0xFF) == 0);
+    setFlag(FLAGSUB, true);
+    setFlag(FLAGHALFCARRY, ((a & 0xF) - (d & 0xF)) < 0); //set if carry to bit 4
+    setFlag(FLAGCARRY, r < 0);
     regA = (r & 0xFF);
 }
 void CPU::sbc(uint8_t &regA, uint8_t data){
@@ -310,10 +308,10 @@ void CPU::sbc(uint8_t &regA, uint8_t data){
 
     int16_t r = a - d - c;
 
-    this->setFlag(FLAGZERO, (r & 0xFF) == 0);
-    this->setFlag(FLAGSUB, true);
-    this->setFlag(FLAGHALFCARRY, ((a & 0x0F) - (d & 0x0F) - c) < 0); //set if carry to bit 4
-    this->setFlag(FLAGCARRY, r < 0);
+    setFlag(FLAGZERO, (r & 0xFF) == 0);
+    setFlag(FLAGSUB, true);
+    setFlag(FLAGHALFCARRY, ((a & 0x0F) - (d & 0x0F) - c) < 0); //set if carry to bit 4
+    setFlag(FLAGCARRY, r < 0);
     regA = (r & 0xFF);
 }
 void CPU::adc(uint8_t &regA, uint8_t data){
@@ -323,10 +321,10 @@ void CPU::adc(uint8_t &regA, uint8_t data){
 
     int16_t r = a + d + c;
 
-    this->setFlag(FLAGZERO, (r & 0xFF) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, ((a & 0x0F) + (d & 0x0F) + c) > 0x0F); //set if carry to bit 4
-    this->setFlag(FLAGCARRY, r > 0xFF);
+    setFlag(FLAGZERO, (r & 0xFF) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, ((a & 0x0F) + (d & 0x0F) + c) > 0x0F); //set if carry to bit 4
+    setFlag(FLAGCARRY, r > 0xFF);
     regA = (r & 0xFF);
 }
 
@@ -334,10 +332,10 @@ void CPU::cp(uint8_t &regA, uint8_t data){
     int16_t a = int16_t(regA);
     int16_t d = int16_t(data);
 
-    this->setFlag(FLAGZERO, (regA == data));
-    this->setFlag(FLAGSUB, true);
-    this->setFlag(FLAGHALFCARRY, ((a & 0xF) - (d & 0xF)) < 0); //set if carry to bit 4
-    this->setFlag(FLAGCARRY, regA > data);
+    setFlag(FLAGZERO, (regA == data));
+    setFlag(FLAGSUB, true);
+    setFlag(FLAGHALFCARRY, ((a & 0xF) - (d & 0xF)) < 0); //set if carry to bit 4
+    setFlag(FLAGCARRY, regA > data);
 }
 
 //16 bit arithmetic
@@ -372,10 +370,10 @@ void CPU::loadSP2Reg(uint8_t &regA, uint8_t &regB){
 void CPU::addByte2SP(int8_t data){
     uint16_t r = reg.SP + data;
 
-    this->setFlag(FLAGZERO, (r & 0xFF) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, ((r & 0x0F)) < (reg.SP & 0x0F)); //set if carry to bit 4
-    this->setFlag(FLAGCARRY, ((r & 0xFF) < (reg.SP & 0xFF)) );
+    setFlag(FLAGZERO, (r & 0xFF) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, ((r & 0x0F)) < (reg.SP & 0x0F)); //set if carry to bit 4
+    setFlag(FLAGCARRY, ((r & 0xFF) < (reg.SP & 0xFF)) );
     reg.SP = (r & 0xFF);
 }
 
@@ -388,20 +386,26 @@ void CPU::push(uint8_t &regA, uint8_t &regB){
     mem.write(reg.SP, regB);
 }
 void CPU::pop(uint8_t &regA, uint8_t &regB){
-    regA = mem.read(reg.SP);
-    reg.SP++;
     regB = mem.read(reg.SP);
+    reg.SP++;
+    regA = mem.read(reg.SP);
     reg.SP++;
 }
 void CPU::call(uint8_t byte1, uint8_t byte2){
-    uint16_t byte = joinByte(byte1, byte2);//(byte1 << 8) + byte2;
+
+    reg.PC += 3;
     uint16_t data = reg.PC;
 
     uint8_t data1 = data & 0x00FF;
     uint8_t data2 = (data & 0xFF00) >> 8;
 
-    push(data1, data2);
-    jp(byte);
+    mem.write(--reg.SP, data2);
+    mem.write(--reg.SP, data1);
+
+    //push(data2, data1);
+    uint16_t byte_double = joinByte(byte1, byte2);//(byte1 << 8) + byte2;
+
+    jp(byte_double);
 }
 bool CPU::call(uint8_t byte1, uint8_t byte2, int flag){
 
@@ -432,7 +436,7 @@ void CPU::ret(){
     uint8_t addr1 = mem.read(reg.SP++);
     uint8_t addr2 = mem.read(reg.SP++);
 
-    jp( joinByte(addr1, addr2));
+    jp( joinByte(addr2, addr1));
 }
 bool CPU::ret(int flag){
     bool isReset = true;
@@ -470,8 +474,8 @@ void CPU::ei(){ interruptsEnabled = true;}
 void CPU::di(){ interruptsEnabled = false;}
 
 void CPU::cpl(){ reg.A = ~reg.A;}
-void CPU::ccf(){ this->setFlag(FLAGCARRY, !(reg.F & FLAGCARRY) );}
-void CPU::scf(){ this->setFlag(FLAGCARRY, true);}
+void CPU::ccf(){ setFlag(FLAGCARRY, !(reg.F & FLAGCARRY) );}
+void CPU::scf(){ setFlag(FLAGCARRY, true);}
 
 //TODO: jump operations
 void CPU::jp(uint16_t addr){
@@ -501,7 +505,7 @@ bool CPU::jp(uint16_t addr, int flag){
     }
 }
 void CPU::jr(int8_t data){
-    reg.PC = reg.PC + data;
+    reg.PC = (reg.PC + 2 ) + data;
     jp(reg.PC);
 }
 bool CPU::jr(int8_t data, int flag){
@@ -532,37 +536,37 @@ void CPU::rlca(){
     int old7Bit = (0b10000000 & reg.A) != 0;
     reg.A = (reg.A << 1) | (reg.A >> 7);
 
-    this->setFlag(FLAGZERO, (reg.A) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old7Bit != 0);
+    setFlag(FLAGZERO, (reg.A) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old7Bit != 0);
 }
 void CPU::rla(){
     int old7Bit = (0b10000000 & reg.A) != 0;
     reg.A = (reg.A << 1) | ((reg.F & FLAGCARRY) != 0);
 
-    this->setFlag(FLAGZERO, (reg.A) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old7Bit != 0);
+    setFlag(FLAGZERO, (reg.A) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old7Bit != 0);
 }
 void CPU::rrca(){
     int old7Bit = (0b10000000 & reg.A) != 0;
     reg.A = (reg.A >> 1) | (reg.A << 7);
 
-    this->setFlag(FLAGZERO, (reg.A) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old7Bit != 0);
+    setFlag(FLAGZERO, (reg.A) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old7Bit != 0);
 }
 void CPU::rra(){
     int old7Bit = (0b10000000 & reg.A) != 0;
     reg.A = (reg.A >> 1) | (((reg.F & FLAGCARRY) != 0) << 7);
 
-    this->setFlag(FLAGZERO, (reg.A) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old7Bit != 0);
+    setFlag(FLAGZERO, (reg.A) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old7Bit != 0);
 }
 void CPU::rlc(uint8_t &data, bool isMem){
     if (isMem){
@@ -572,10 +576,10 @@ void CPU::rlc(uint8_t &data, bool isMem){
     int old7Bit = (0b10000000 & data) != 0;
     data = (data << 1) | (data >> 7);
 
-    this->setFlag(FLAGZERO, (data) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old7Bit != 0);
+    setFlag(FLAGZERO, (data) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old7Bit != 0);
 
     if (isMem){
         mem.write(pairReg(reg.H, reg.L), data);
@@ -589,10 +593,10 @@ void CPU::rl(uint8_t &data, bool isMem){
     int old7Bit = (0b10000000 & data) != 0;
     data = (data << 1) | ((reg.F & FLAGCARRY) != 0);
 
-    this->setFlag(FLAGZERO, (data) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old7Bit != 0);
+    setFlag(FLAGZERO, (data) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old7Bit != 0);
 
     if (isMem){
         mem.write(pairReg(reg.H, reg.L), data);
@@ -607,10 +611,10 @@ void CPU::rrc(uint8_t &data, bool isMem){
     int old0Bit = (0b00000001 & data) != 0;
     data = (data >> 1) | (data << 7);
 
-    this->setFlag(FLAGZERO, (data) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old0Bit != 0);
+    setFlag(FLAGZERO, (data) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old0Bit != 0);
 
     if (isMem){
         mem.write(pairReg(reg.H, reg.L), data);
@@ -625,10 +629,10 @@ void CPU::rr(uint8_t &data, bool isMem){
     int old0Bit = (0b00000001 & data) != 0;
     data = (data >> 1) | (((reg.F & FLAGCARRY) != 0) << 7);
 
-    this->setFlag(FLAGZERO, (data) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old0Bit != 0);
+    setFlag(FLAGZERO, (data) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old0Bit != 0);
 
     if (isMem){
         mem.write(pairReg(reg.H, reg.L), data);
@@ -643,10 +647,10 @@ void CPU::sla(uint8_t &data, bool isMem){
     int old7Bit = (0b10000000 & data) != 0;
     data = (data << 1);
 
-    this->setFlag(FLAGZERO, (data) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old7Bit != 0);
+    setFlag(FLAGZERO, (data) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old7Bit != 0);
 
     if (isMem){
         mem.write(pairReg(reg.H, reg.L), data);
@@ -663,10 +667,10 @@ void CPU::sra(uint8_t &data, bool isMem){
 
     data = (data >> 1) | (old7Bit << 7);
 
-    this->setFlag(FLAGZERO, (data) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old0Bit != 0);
+    setFlag(FLAGZERO, (data) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old0Bit != 0);
 
     if (isMem){
         mem.write(pairReg(reg.H, reg.L), data);
@@ -681,10 +685,10 @@ void CPU::srl(uint8_t &data, bool isMem){
     int old0Bit = (0b00000001 & data) != 0;
     data = (data >> 1);
 
-    this->setFlag(FLAGZERO, (data) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, old0Bit != 0);
+    setFlag(FLAGZERO, (data) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, old0Bit != 0);
 
     if (isMem){
         mem.write(pairReg(reg.H, reg.L), data);
@@ -700,13 +704,11 @@ void CPU::bit(int bit, uint8_t &regA, bool isMem){
     }
 
 
-    int result = (bit & regA) != 0;
+    int result = (bit & ~regA);
 
-    if (result == 0){
-        this->setFlag(FLAGZERO, true);
-    }
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, true);
+    setFlag(FLAGZERO, result != 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, true);
 
 
     if (isMem){
@@ -753,10 +755,10 @@ void CPU::swap(uint8_t &regA, bool isMem){
 
     result =  (upper >> 4) | (lower << 4);
 
-    this->setFlag(FLAGZERO, (result) == 0);
-    this->setFlag(FLAGSUB, false);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, false);
+    setFlag(FLAGZERO, (result) == 0);
+    setFlag(FLAGSUB, false);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, false);
 
     if (isMem){
         mem.write(pairReg(reg.H, reg.L), result);
@@ -787,9 +789,9 @@ void CPU::daa(){
          binaryInput /= 10;
       }
 
-    this->setFlag(FLAGZERO, (result) == 0);
-    this->setFlag(FLAGHALFCARRY, false);
-    this->setFlag(FLAGCARRY, ((result & 0x100) != 0));
+    setFlag(FLAGZERO, (result) == 0);
+    setFlag(FLAGHALFCARRY, false);
+    setFlag(FLAGCARRY, ((result & 0x100) != 0));
 
     reg.A = result;
 }
@@ -808,10 +810,10 @@ void CPU::nop(){
 //set register flags
 void CPU::setFlag(const int flag, bool result){
     if (result){
-        this->reg.F |= flag;
+        reg.F |= flag;
     }
     else {
-        this->reg.F &= ~flag;
+        reg.F &= ~flag;
     }
 }
 
@@ -848,5 +850,8 @@ QString CPU::formatMemory(std::vector<uint8_t> data, int count){
     return output;
 }
 
+QString CPU::formatHex(uint8_t data, int fill){
+    return QString::number(data, 16).rightJustified(fill, '0');
+}
 
 

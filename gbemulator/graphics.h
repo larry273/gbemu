@@ -6,6 +6,8 @@
 #include <QImage>
 #include <QObject>
 
+#define HEX(x) std::setw(2) << std::setfill('0') << std::hex << int(x)
+
 
 class graphics : public QObject
 {
@@ -46,7 +48,7 @@ public:
     void renderTiles();
     //render sprites (characters) on background
     void renderSprites();
-
+    //return completed image frame
     QImage sendFrame();
 
 
@@ -54,24 +56,24 @@ signals:
     void frameCompleted();
 
 private:
-
-    memory *mem;
-    //get color from 2 bits and palette address
-    QColor getColour(uint8_t bits, uint16_t paletteAddr);
-    int scanLineCount;
-
     const int TILESIZE = 16;
 
-    //status of lcd
-    void LCDStatus();
-    //lcd enabled
-    bool lcdEnabled();
-    void drawScanLine();
-
+    memory *mem;
     QImage bgPixels;
     QImage spritePixels;
-
     QColor greyShades[5];
+
+    int scanLineCount;
+
+
+    //check and set lcd operation modes and interrupts
+    void LCDStatus();
+    //check iflcd enabled
+    bool lcdEnabled();
+    //draw 1 scan line of tiles and sprites
+    void drawScanLine();
+    //get color from 2 bits and palette address
+    QColor getColour(uint8_t bits, uint16_t paletteAddr);
 
 };
 

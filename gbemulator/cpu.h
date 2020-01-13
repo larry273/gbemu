@@ -10,6 +10,7 @@
 #include <QThread>
 #include <QString>
 #include <QElapsedTimer>
+#include <QDebug>
 
 
 #include "memory.h"
@@ -18,12 +19,14 @@
 #define HEX(x) std::setw(2) << std::setfill('0') << std::hex << int(x)
 #define HEXCOUNT(x) std::setw(6) << std::setfill('0') << std::hex << int(x)
 
+#define HEXPRINT(x) QString::number(x, 16).rightJustified(2, '0')
+#define HEXPRINT_6(x) QString::number(x, 16).rightJustified(6, '0')
+
 
 struct gbData {
     std::string filename;
-    std::string instruction;
+    std::vector<uint8_t> boot;
     std::vector<uint8_t> buffer;
-    int data;
 };
 
 struct reg {
@@ -56,6 +59,8 @@ public:
 
     bool debug = false;
     bool nextOpCode = true;
+    bool printOpCode = true;
+    int pcStop = 0;
 
     void reset();
     void resetNoBoot();
@@ -100,6 +105,7 @@ private:
     bool interruptsEnabled;
     struct gbData gbdata;
     QString currentOpCode;
+    int lastOpByte;
 
     void setFlag(const int flag, bool result);
     //pair two 8 bit registers for one 16 bit reg
@@ -115,7 +121,7 @@ private:
     void performInterrupts(uint16_t &pc);
 
     //8 bit register loads
-    void load(uint8_t &regA, uint8_t &regB);
+    void load(uint8_t &regA, uint8_t regB);
     void load(uint8_t &regA, uint8_t *data);
 
     //16 bit register load
@@ -212,8 +218,9 @@ private:
 
     void decodeByte(uint16_t &pc);
     void decodePreByte(uint8_t bitCode); //0xCB prefixed opcode
-    void readFiletoBytes(struct gbData &gbdata);
+    void readFiletoBytes(struct gbData &gbdata, bool isBoot=false);
     QString formatMemory(std::vector<uint8_t> data, int count);
+    QString formatHex(uint8_t data, int fill = 2);
 
 };
 

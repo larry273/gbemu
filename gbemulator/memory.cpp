@@ -32,7 +32,7 @@ uint8_t memory::read(uint16_t absoluteLoc){
     }
     //external ram
     else if (inRange(0xA000, 0xBFFF, absoluteLoc)){
-        val = externalMem[absoluteLoc = 0xA000];
+        val = externalMem[absoluteLoc - 0xA000];
     }
 
     //main ram
@@ -40,7 +40,7 @@ uint8_t memory::read(uint16_t absoluteLoc){
         val = mainMem[absoluteLoc - 0xC000];
     }
     //echo ram
-    else if (inRange(0xE000, 0xFFFF, absoluteLoc)){
+    else if (inRange(0xE000, 0xFDFF, absoluteLoc)){
         val = mainMem[absoluteLoc - 0xE000 - 0x2000];
     }
 
@@ -82,14 +82,14 @@ void memory::write(uint16_t absoluteLoc, uint8_t data){
     }
     //external ram
     else if (inRange(0xA000, 0xBFFF, absoluteLoc)){
-       externalMem[absoluteLoc = 0xA000] = data;
+       externalMem[absoluteLoc - 0xA000] = data;
     }
     //main memory
     else if (inRange(0xC000, 0xE000, absoluteLoc)){
         mainMem[absoluteLoc - 0xC000] = data;
     }
     //echo memory
-    else if (inRange(0xE000, 0xFFFF, absoluteLoc)){
+    else if (inRange(0xE000, 0xFDFF, absoluteLoc)){
         //mainMem[absoluteLoc - 0xE000 - 0x2000] = data;
     }
 
@@ -103,20 +103,25 @@ void memory::write(uint16_t absoluteLoc, uint8_t data){
     }
 
 
-    //if access scanline GB resets to zero
-    else if (absoluteLoc == 0xFF44){
-            smallMem[0xFF44 - 0xFF00] = 0;
-    }
-
     //small memory
     else if (inRange(0xFF00, 0xFFFF, absoluteLoc)){
         smallMem[absoluteLoc - 0xFF00] = data;
     }
+   //if access scanline GB resets to zero
+   else if (absoluteLoc == 0xFF44){
+           smallMem[0xFF44 - 0xFF00] = 0;
+   }
     else{
         std::cout << "ERROR memory write: " << HEX16(absoluteLoc) << " :" << HEX(data) << " \n";
         return;
     }
-    std::cout << "Wrote to memory: " << HEX16(absoluteLoc) << " :" << HEX(data) << " \n";
+
+    //memory read/write sanity check
+    if (read(absoluteLoc) != data){
+        std::cout << "ERROR memory write: " << HEX16(absoluteLoc) << " :" << HEX(data) << " \n";
+        return;
+    }
+    //std::cout << "Wrote to memory: " << HEX16(absoluteLoc) << ":" << HEX(data) << " \n";
 }
 
 void memory::clearMemory(){
@@ -127,7 +132,6 @@ void memory::clearMemory(){
     std::fill(spriteMem.begin(), spriteMem.end(), 0);
     std::fill(gameRomSwitchable.begin(), gameRomSwitchable.end(), 0);
     std::fill(externalMem.begin(), externalMem.end(), 0);
-
 
 }
 
